@@ -143,6 +143,12 @@ header.top .wrap{align-items:center;flex-wrap:nowrap;gap:12px;padding-block:12px
 .xmsg{font-size:13px;color:var(--muted)}
 .logo{height:48px;width:auto;flex:none;margin-right:2px}
 @media (max-width:600px){.logo{height:40px}}
+/* แสดงข้อมูลในช่องคาบให้ครบ ไม่ตัดด้วย … */
+.ent{overflow:visible}
+.ent .ln{white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere}
+.ent .sn,.ent .sn.one{display:block;-webkit-line-clamp:unset;overflow:visible}
+.mini .md{white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere}
+.ent.act{overflow-wrap:anywhere}
 footer.credit{margin-top:28px;padding:14px 0 18px;border-top:3px solid var(--gold);background:var(--brand);color:#C9D4F2;font-size:13px;text-align:center}footer.credit b{color:var(--gold);font-weight:600}
 </style>
 <link rel="icon" type="image/png" href="favicon.png">
@@ -628,8 +634,10 @@ async function drawSheet(){
         ctx.fillStyle=mixHex(hex,.72,'#14211E'); ctx.font=`600 11px ${FD}`; ctx.fillText(it.s, tx, ty);
         const nm=SUBJ[it.s]; ctx.font=`400 10px ${FB}`;
         const detLs = it.det ? wrap(ctx, it.det, tw) : [];
-        const detN = Math.min(2, detLs.length), detH = detN*12.5;
-        if (nm){ ctx.fillStyle=INK; const room=Math.max(0,Math.floor((ey+eh-ty-detH-4)/12.5)); const ls=wrap(ctx,nm,tw);
+        const nmLs = nm ? wrap(ctx, nm, tw) : [];
+        const L = Math.max(0, Math.floor((ey+eh-ty-4)/12.5));   // จำนวนบรรทัดที่ช่องรับได้
+        const detN = Math.min(detLs.length, Math.max(Math.min(2, detLs.length), L - nmLs.length)), detH = detN*12.5;
+        if (nm){ ctx.fillStyle=INK; const room=Math.max(0,Math.floor((ey+eh-ty-detH-4)/12.5)); const ls=nmLs;
           ls.slice(0,room).forEach((l,k)=>{ const last=k===room-1 && ls.length>room; ty+=12.5; ctx.fillText(last?clip(ctx,l+'…',tw):l, tx, ty); }); }
         ctx.fillStyle=MUTED;
         for (let k=0; k<detN && ty+12.5 <= ey+eh-2; k++){ ty+=12.5; const last=k===detN-1 && detLs.length>detN; ctx.fillText(last?clip(ctx,detLs[k]+'…',tw):detLs[k], tx, ty); }
