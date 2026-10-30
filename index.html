@@ -1,0 +1,422 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ตารางสอน BEN2</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Sans+Thai:wght@400;500;600&display=swap">
+<style>
+/* Layout: slim header band → tab bar → [picker column | timetable grid (days × 10 periods)], stacks under 860px */
+:root{
+  --bg:#F3F6F5; --surface:#FFFFFF; --sunk:#E9EEEC; --line:#D5DDDA; --fg:#14211E; --muted:#5A6965; --accent:#0E6B5A; --accent-fg:#FFFFFF;
+  --mix:17%; --mix-strong:62%;
+  --h-th:#C2410C; --h-ma:#2563EB; --h-sc:#059669; --h-so:#A16207; --h-pe:#DC2626; --h-ar:#DB2777; --h-oc:#7C3AED; --h-en:#0891B2; --h-fl:#65A30D; --h-is:#475569; --h-ac:#78716C; --h-ex:#4F46E5;
+  --font-d:"Chakra Petch","IBM Plex Sans Thai",system-ui,sans-serif;
+  --font-b:"IBM Plex Sans Thai","Noto Sans Thai",system-ui,sans-serif;
+  --r:8px;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0F1614; --surface:#162120; --sunk:#1C2927; --line:#2A3835; --fg:#E4EDEA; --muted:#93A39E; --accent:#4CC3A6; --accent-fg:#06201A;
+  --mix:26%; --mix-strong:72%; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0F1614; --surface:#162120; --sunk:#1C2927; --line:#2A3835; --fg:#E4EDEA; --muted:#93A39E; --accent:#4CC3A6; --accent-fg:#06201A;
+  --mix:26%; --mix-strong:72%; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--font-b);font-size:15px;line-height:1.5}
+.wrap{max-width:1320px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+header.top{border-bottom:1px solid var(--line);background:var(--surface)}
+header.top .wrap{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 16px;padding-block:14px}
+h1{font-family:var(--font-d);font-size:22px;font-weight:700;margin:0;letter-spacing:.01em}
+.term{color:var(--muted);font-size:14px}
+.term b{color:var(--accent);font-weight:600}
+nav.tabs{display:flex;gap:4px;flex-wrap:wrap;padding-block:12px}
+nav.tabs button{font:inherit;font-weight:500;border:1px solid var(--line);background:var(--surface);color:var(--fg);padding:7px 14px;border-radius:999px;cursor:pointer}
+nav.tabs button[aria-selected="true"]{background:var(--accent);color:var(--accent-fg);border-color:var(--accent)}
+button:focus-visible,select:focus-visible,input:focus-visible,a:focus-visible,.pick:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.layout{display:grid;grid-template-columns:280px minmax(0,1fr);gap:20px;align-items:start;padding-bottom:40px}
+@media (max-width:860px){.layout{grid-template-columns:minmax(0,1fr)}}
+aside.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px;display:flex;flex-direction:column;gap:10px;position:sticky;top:12px;max-height:calc(100vh - 24px)}
+@media (max-width:860px){aside.panel{position:static;max-height:none}}
+label.lbl{font-size:12px;color:var(--muted);letter-spacing:.04em;font-weight:500}
+input[type=search],select{font:inherit;width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--fg)}
+.list{overflow:auto;display:flex;flex-direction:column;gap:1px;min-height:0;max-height:62vh}
+@media (max-width:860px){.list{max-height:240px}}
+.grp{font-size:12px;color:var(--muted);padding:8px 6px 4px;font-weight:600;position:sticky;top:0;z-index:1;background:var(--surface);border-bottom:1px solid var(--line)}
+.pick{display:flex;justify-content:space-between;gap:8px;padding:6px 8px;border-radius:6px;cursor:pointer;border:0;background:none;color:inherit;font:inherit;text-align:left;width:100%}
+.pick:hover{background:var(--sunk)}
+.pick[aria-current="true"]{background:color-mix(in oklab,var(--accent) 16%,var(--surface));font-weight:600}
+.pick small{color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font:inherit;font-size:13px;border:1px solid var(--line);background:var(--bg);color:var(--fg);padding:4px 10px;border-radius:999px;cursor:pointer;font-variant-numeric:tabular-nums}
+.chip[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-fg)}
+main{min-width:0;display:flex;flex-direction:column;gap:14px}
+.title-row{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:8px 20px}
+.title-row h2{font-family:var(--font-d);font-size:26px;margin:0;line-height:1.2;text-wrap:balance}
+.sub{color:var(--muted);font-size:14px}
+.stats{display:flex;gap:18px;flex-wrap:wrap}
+.stat{display:flex;flex-direction:column}
+.stat b{font-family:var(--font-d);font-size:22px;font-variant-numeric:tabular-nums;line-height:1.1}
+.stat span{font-size:12px;color:var(--muted)}
+.scroller{overflow-x:auto;border:1px solid var(--line);border-radius:var(--r);background:var(--surface)}
+table.tt{border-collapse:collapse;width:100%;min-width:980px;table-layout:fixed}
+.tt th,.tt td{border-right:1px solid var(--line);border-bottom:1px solid var(--line);vertical-align:top}
+.tt tr>*:last-child{border-right:0}.tt tbody tr:last-child>*{border-bottom:0}
+.tt thead th{font-family:var(--font-d);font-weight:600;font-size:13px;padding:6px 4px;background:var(--sunk);font-variant-numeric:tabular-nums}
+.tt thead th.lunch{color:var(--muted)}
+.tt th.day{width:74px;text-align:left;padding:8px 10px;font-family:var(--font-d);font-size:15px;background:var(--sunk);vertical-align:middle}
+.tt td{height:74px;padding:3px}
+.cell{height:100%;display:flex;flex-direction:column;gap:3px}
+.ent{--h:var(--h-is);background:color-mix(in oklab,var(--h) var(--mix),var(--surface));border-radius:5px;padding:4px 6px;font-size:12.5px;line-height:1.3;flex:1;min-height:0;overflow:hidden}
+.ent .code{font-family:var(--font-d);font-weight:600;font-size:13px;color:color-mix(in oklab,var(--h) var(--mix-strong),var(--fg))}
+.ent .ln{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ent a{color:inherit;text-decoration:underline;text-decoration-color:color-mix(in oklab,var(--fg) 30%,transparent);text-underline-offset:2px;cursor:pointer}
+.ent a:hover{text-decoration-color:currentColor}
+.ent.act{background:repeating-linear-gradient(-45deg,var(--sunk) 0 6px,var(--surface) 6px 12px);border:1px dashed var(--line);color:var(--muted);display:flex;align-items:center;justify-content:center;text-align:center}
+.ent.inferred{opacity:.85}
+.ent.many{font-size:11.5px;padding:2px 5px}
+.more{font-size:11px;color:var(--muted);padding-left:4px}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12.5px;color:var(--muted)}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:-1px;margin-right:5px;background:color-mix(in oklab,var(--h) 55%,var(--surface))}
+.note{font-size:13px;color:var(--muted);max-width:75ch}
+.free-wrap{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);gap:16px}
+@media (max-width:1000px){.free-wrap{grid-template-columns:minmax(0,1fr)}}
+.box{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px}
+.box h3{margin:0 0 8px;font-family:var(--font-d);font-size:17px}
+.tlist{columns:2 240px;column-gap:20px}
+.tlist .dg{break-inside:avoid;margin-bottom:12px}
+.tlist .dg h4{margin:0 0 4px;font-size:13px;color:var(--muted);font-weight:600}
+.tlist a{display:flex;justify-content:space-between;gap:8px;padding:2px 0;color:var(--fg);text-decoration:none;cursor:pointer}
+.tlist a:hover span:first-child{text-decoration:underline}
+.load{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+.load.lo{color:var(--accent);font-weight:600}
+.rooms{display:flex;flex-wrap:wrap;gap:6px}
+.rooms a{font-family:var(--font-d);font-size:13px;padding:3px 8px;border:1px solid var(--line);border-radius:5px;color:var(--fg);text-decoration:none;cursor:pointer;font-variant-numeric:tabular-nums}
+.rooms a:hover{border-color:var(--accent)}
+.ex{border-collapse:collapse;width:100%;min-width:520px}.ex th,.ex td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);font-variant-numeric:tabular-nums}.ex th{font-size:12px;color:var(--muted);font-weight:600}
+.empty{color:var(--muted);padding:30px 10px;text-align:center}
+@media (prefers-reduced-motion:no-preference){.pick,.chip,nav.tabs button{transition:background-color .12s}}
+
+html{-webkit-text-size-adjust:100%}body{margin:0}[hidden]{display:none!important}img{max-width:100%}
+.tt thead th .pt{display:block;font-family:var(--font-b);font-weight:400;font-size:11px;color:var(--muted)}
+.ent .code .sn{font-family:var(--font-b);font-weight:500;font-size:12px;color:var(--fg)}
+.loading{padding:60px 10px;text-align:center;color:var(--muted)}
+.errbox{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:20px;max-width:60ch}
+.updated{color:var(--muted);font-size:13px}
+</style>
+<script src="config.js"></script>
+</head>
+<body>
+<header class="top"><div class="wrap">
+  <h1 id="school">ตารางสอน</h1>
+  <span class="term" id="term"></span>
+</div></header>
+<div class="wrap">
+  <nav class="tabs" role="tablist" aria-label="มุมมอง">
+    <button role="tab" data-v="c" id="tab-c">ตารางเรียนรายห้อง</button>
+    <button role="tab" data-v="t" id="tab-t">ตารางครู</button>
+    <button role="tab" data-v="r" id="tab-r">การใช้ห้อง</button>
+    <button role="tab" data-v="f" id="tab-f">หาครูว่าง / ห้องว่าง</button>
+    <button role="tab" data-v="e" id="tab-e">ตารางสอบ</button>
+  </nav>
+  <div class="layout">
+    <aside class="panel" id="panel"></aside>
+    <main id="main"></main>
+  </div>
+</div>
+<script>
+const API = window.BEN2TT_API;
+const mainEl = document.getElementById('main');
+mainEl.innerHTML = '<div class="loading">กำลังโหลดตาราง…</div>';
+async function loadData(){
+  let cache = null;
+  try { cache = JSON.parse(localStorage.getItem('ben2tt-cache') || 'null'); } catch(_) {}
+  try {
+    if (cache) {
+      const v = await (await fetch(API + '?action=version')).json();
+      if (v.ok && v.version === cache.version) return cache;
+    }
+    const d = await (await fetch(API + '?action=data')).json();
+    if (!d.ok) throw new Error(d.error || 'โหลดข้อมูลไม่สำเร็จ');
+    try { localStorage.setItem('ben2tt-cache', JSON.stringify(d)); } catch(_) {}
+    return d;
+  } catch (err) {
+    if (cache) return cache;
+    throw err;
+  }
+}
+// ส่งความสูงให้หน้าเว็บโรงเรียนที่ฝังด้วย iframe
+if (window.parent !== window && window.ResizeObserver) {
+  new ResizeObserver(() => parent.postMessage({ben2tt: true, height: document.documentElement.scrollHeight}, '*')).observe(document.body);
+}
+loadData().then(start).catch(err => {
+  mainEl.innerHTML = `<div class="errbox"><b>โหลดตารางไม่สำเร็จ</b><br>ตรวจสอบการเชื่อมต่ออินเทอร์เน็ตแล้วลองรีเฟรชหน้าอีกครั้ง<br><small>${String(err.message||err).replace(/</g,'&lt;')}</small></div>`;
+});
+
+function start(DATA){
+if (!DATA.teachers || !DATA.teachers.length) {
+  mainEl.innerHTML = '<div class="errbox"><b>ยังไม่มีข้อมูลตารางสอน</b><br>ฝ่ายวิชาการยังไม่ได้อัปโหลดไฟล์ตารางสอนของภาคเรียนนี้</div>';
+  return;
+}
+const SUBJ = DATA.subjects || {};
+const PT = Array.from({length:10}, (_,i) => { const x=(DATA.periods||[]).find(q=>q.p===i+1); return x && x.start ? x.start + (x.end ? '–' + x.end : '') : ''; });
+const DAYS = ['จันทร์','อังคาร','พุธ','พฤหัสบดี','ศุกร์'];
+const DAYS_S = ['จ.','อ.','พ.','พฤ.','ศ.'];
+const NP = 10;
+const CAT = {'ท':['th','ภาษาไทย'],'ค':['ma','คณิตศาสตร์'],'ว':['sc','วิทยาศาสตร์และเทคโนโลยี'],'ส':['so','สังคมศึกษา'],'พ':['pe','สุขศึกษาและพลศึกษา'],'ศ':['ar','ศิลปะ'],'ง':['oc','การงานอาชีพ'],'อ':['en','ภาษาอังกฤษ'],'จ':['fl','ภาษาจีน/ญี่ปุ่น'],'ญ':['fl','ภาษาจีน/ญี่ปุ่น'],'I':['is','IS'],'ก':['ac','กิจกรรม/แนะแนว'],'เ':['ex','เสริม/CEFR'],'C':['ex','เสริม/CEFR']};
+const hueOf = s => 'var(--h-' + ((CAT[s[0]]||['is'])[0]) + ')';
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const isRoom = r => r && !/^\d$/.test(r);
+const levelOf = c => { const m = /^(\d)/.exec(c); return m ? +m[1] : 0; };
+function expandClass(c){
+  const m = /^(\d)\/(\d+)-(\d+)$/.exec(c);
+  if (!m) return [c];
+  const out=[]; for (let i=+m[2]; i<=+m[3]; i++) out.push(m[1]+'/'+i); return out;
+}
+function classSlug(c){ return c.replace('/', '-').replace('วิทย์','sci').replace('ศิลป์','art').replace('เสรี','free'); }
+
+// ---- indices
+const T = DATA.teachers;
+const tById = new Map(T.map(t => [t.id, t]));
+const byClass = new Map(), byRoom = new Map(), busy = new Map();
+const grid = () => Array.from({length:5}, () => Array.from({length:NP}, () => []));
+const actCount = new Map();
+for (const t of T) {
+  const b = grid(); busy.set(t.id, b);
+  for (const e of t.x) {
+    b[e.d][e.p].push(e);
+    if (e.a) { const k=e.a+'|'+e.d+'|'+e.p; actCount.set(k,(actCount.get(k)||0)+1); continue; }
+    if (e.c) for (const c of expandClass(e.c)) {
+      if (!byClass.has(c)) byClass.set(c, grid());
+      byClass.get(c)[e.d][e.p].push({...e, t:t.id});
+    }
+    if (isRoom(e.r)) {
+      if (!byRoom.has(e.r)) byRoom.set(e.r, grid());
+      byRoom.get(e.r)[e.d][e.p].push({...e, t:t.id});
+    }
+  }
+}
+// school-wide activities: an activity many teachers share in one slot (ชุมนุม, ลูกเสือ)
+const WIDE = [];
+for (const [k,n] of actCount) if (n >= 40) { const [a,d,p]=k.split('|'); WIDE.push({a, d:+d, p:+p}); }
+function wideFor(c, d, p){
+  const lv = levelOf(c);
+  return WIDE.find(w => w.d===d && w.p===p && (/ลูกเสือ/.test(w.a) ? lv>=1 && lv<=3 : true));
+}
+const classes = [...byClass.keys()].sort((a,b) => {
+  const la=levelOf(a), lb=levelOf(b); if (la!==lb) return (la||9)-(lb||9);
+  const na=/\/(\d+)$/.exec(a), nb=/\/(\d+)$/.exec(b);
+  if (na && nb) return +na[1]-+nb[1]; if (na) return -1; if (nb) return 1; return a.localeCompare(b,'th');
+});
+const cBySlug = new Map(classes.map(c => [classSlug(c), c]));
+const rooms = [...byRoom.keys()].sort((a,b) => {
+  const na=/^\d+$/.test(a), nb=/^\d+$/.test(b);
+  if (na&&nb) return +a-+b; if (na) return -1; if (nb) return 1; return a.localeCompare(b);
+});
+const roomSlug = r => /^[A-Za-z0-9]+$/.test(r) ? r : 'x'+rooms.indexOf(r);
+const rBySlug = new Map(rooms.map(r => [roomSlug(r), r]));
+const depts = [...new Set(T.map(t => t.g))];
+const lessonCount = t => t.x.filter(e => !e.a).length;
+const roomLabel = r => /^\d+$/.test(r) ? 'ห้อง ' + r : r;
+
+// ---- state + routing
+const S = {v:'c', t:'0404', c:'1/1', r:'com1', fd:0, fp:0, q:'', dept:''};
+try { const sv = JSON.parse(localStorage.getItem('ben2-tt')||'{}'); Object.assign(S, sv); } catch(_){}
+const save = () => { try { localStorage.setItem('ben2-tt', JSON.stringify({fd:S.fd, fp:S.fp, dept:S.dept})); } catch(_){} };
+function fromHash(){
+  const h = location.hash.slice(1); let m;
+  if ((m=/^t-(\w+)$/.exec(h)) && tById.has(m[1])) { S.v='t'; S.t=m[1]; }
+  else if ((m=/^c-([\w-]+)$/.exec(h)) && cBySlug.has(m[1])) { S.v='c'; S.c=cBySlug.get(m[1]); }
+  else if ((m=/^r-(\w+)$/.exec(h)) && rBySlug.has(m[1])) { S.v='r'; S.r=rBySlug.get(m[1]); }
+  else if (h==='free') S.v='f';
+  else if (h==='exam') S.v='e';
+  else if (!h && !tById.has(S.t)) S.t = T[0].id;
+}
+function hashFor(){ return S.v==='t' ? 't-'+S.t : S.v==='c' ? 'c-'+classSlug(S.c) : S.v==='r' ? 'r-'+roomSlug(S.r) : S.v==='e' ? 'exam' : 'free'; }
+function go(patch){ Object.assign(S, patch); const h='#'+hashFor(); if (location.hash!==h) history.replaceState(null,'',h); render(); }
+window.addEventListener('hashchange', () => { fromHash(); render(); });
+document.addEventListener('click', ev => {
+  const a = ev.target.closest('[data-go]'); if (!a) return;
+  ev.preventDefault(); const [v,id] = a.dataset.go.split(':');
+  go(v==='t' ? {v, t:id} : v==='c' ? {v, c:id} : {v, r:id});
+  if (window.matchMedia('(max-width:860px)').matches) document.getElementById('main').scrollIntoView({block:'start'});
+});
+document.querySelectorAll('nav.tabs button').forEach(b => b.addEventListener('click', () => go({v:b.dataset.v})));
+
+// ---- rendering helpers
+const link = (v,id,text) => `<a data-go="${v}:${esc(id)}" href="#">${esc(text)}</a>`;
+function tableHTML(cellFn){
+  let h = '<div class="scroller"><table class="tt"><thead><tr><th class="day"></th>';
+  for (let p=0;p<NP;p++) h += `<th>คาบ ${p+1}${PT[p] ? `<small class="pt">${esc(PT[p])}</small>` : ''}</th>`;
+  h += '</tr></thead><tbody>';
+  for (let d=0; d<5; d++){
+    h += `<tr><th class="day" scope="row">${DAYS[d]}</th>`;
+    for (let p=0;p<NP;p++) h += `<td><div class="cell">${cellFn(d,p)}</div></td>`;
+    h += '</tr>';
+  }
+  return h + '</tbody></table></div>';
+}
+function entHTML(e, show, compact){
+  if (e.a) return `<div class="ent act">${esc(e.a)}</div>`;
+  const lines = [];
+  if (show.c && e.c) lines.push(`<span class="ln">${link('c', expandClass(e.c)[0], 'ม.'+e.c)}</span>`);
+  if (show.t && e.t) { const t=tById.get(e.t); lines.push(`<span class="ln">${link('t', e.t, t.n.replace(/^(นางสาว|นาย|นาง|Mr\.|Ms\.|Mrs\.)\s*/,''))}</span>`); }
+  if (show.r) { if (isRoom(e.r)) lines.push(`<span class="ln">${link('r', e.r, roomLabel(e.r))}</span>`); else if (e.r) lines.push(`<span class="ln">กลุ่ม ${esc(e.r)}</span>`); }
+  return `<div class="ent${compact?' many':''}" style="--h:${hueOf(e.s)}"><span class="ln code" title="${esc(SUBJ[e.s]||'')}">${esc(e.s)}${SUBJ[e.s] && !compact ? ` <span class="sn">${esc(SUBJ[e.s])}</span>` : ''}</span>${compact ? '' : lines.join('')}</div>`;
+}
+function stack(list, show){
+  if (!list.length) return '';
+  if (list.length <= 2) return list.map(e => entHTML(e, show, list.length>1)).join('');
+  return list.slice(0,2).map(e => entHTML(e, show, true)).join('') + `<span class="more">+${list.length-2} รายวิชา</span>`;
+}
+function legend(){
+  const seen = new Map(); Object.values(CAT).forEach(([k,n]) => seen.set(k,n));
+  return '<div class="legend">' + [...seen].map(([k,n]) => `<span><i style="--h:var(--h-${k})"></i>${n}</span>`).join('') + '</div>';
+}
+function listHTML(items, cur){
+  return items.map(it => it.grp ? `<div class="grp">${esc(it.grp)}</div>` :
+    `<button class="pick" data-go="${it.go}" aria-current="${it.id===cur}"><span>${esc(it.label)}</span><small>${esc(it.meta||'')}</small></button>`).join('');
+}
+
+// ---- views
+function panelTeachers(){
+  const q = S.q.trim().toLowerCase();
+  const items = [];
+  for (const g of depts) {
+    if (S.dept && g!==S.dept) continue;
+    const ts = T.filter(t => t.g===g && (!q || t.n.toLowerCase().includes(q) || t.id.includes(q)));
+    if (!ts.length) continue;
+    items.push({grp:g});
+    ts.forEach(t => items.push({id:t.id, go:'t:'+t.id, label:t.n, meta:t.t+' คาบ'}));
+  }
+  return `<label class="lbl" for="q">ค้นหาครู</label>
+    <input type="search" id="q" placeholder="ชื่อ หรือรหัสครู เช่น 0404" value="${esc(S.q)}">
+    <select id="dept" aria-label="กลุ่มสาระ"><option value="">ทุกกลุ่มสาระ/งาน (${T.length} คน)</option>${depts.map(g=>`<option ${g===S.dept?'selected':''}>${esc(g)}</option>`).join('')}</select>
+    <div class="list" id="list">${listHTML(items, S.t) || '<div class="empty">ไม่พบชื่อที่ค้นหา</div>'}</div>`;
+}
+function viewTeacher(){
+  const t = tById.get(S.t); const b = busy.get(t.id);
+  const lessons = t.x.filter(e=>!e.a);
+  const cls = new Set(lessons.map(e=>e.c));
+  const subj = new Set(lessons.map(e=>e.s));
+  const perDay = DAYS_S.map((d,i)=> lessons.filter(e=>e.d===i).length);
+  return `<div class="title-row"><div><div class="sub">${esc(t.g)} · รหัส ${esc(t.id)}</div><h2>${esc(t.n)}</h2></div>
+    <div class="stats"><div class="stat"><b>${t.t}</b><span>คาบ/สัปดาห์</span></div><div class="stat"><b>${lessons.length}</b><span>คาบสอน</span></div><div class="stat"><b>${subj.size}</b><span>รายวิชา</span></div><div class="stat"><b>${cls.size}</b><span>ห้อง/กลุ่มเรียน</span></div><div class="stat"><b>${perDay.join(' · ')}</b><span>คาบสอน จ.–ศ.</span></div></div></div>
+    ${tableHTML((d,p) => stack(b[d][p], {c:1, r:1}))}
+    ${legend()}`;
+}
+function panelClasses(){
+  const items=[]; let lv=-1;
+  for (const c of classes){ const l=levelOf(c); if (l!==lv){ lv=l; items.push({grp: l ? 'มัธยมศึกษาปีที่ '+l : 'กลุ่มเรียนอื่น'}); }
+    const n = byClass.get(c).flat().filter(x=>x.length).length;
+    items.push({id:c, go:'c:'+c, label: /^\d\/\d+$/.test(c) ? 'ม.'+c : c, meta:n+' คาบ'}); }
+  return `<label class="lbl">เลือกห้องเรียน</label><div class="list">${listHTML(items, S.c)}</div>`;
+}
+function viewClass(){
+  const c = S.c, g = byClass.get(c);
+  const isGroup = !/^\d\/\d+$/.test(c);
+  let filled=0; const teachers=new Set(), subj=new Set();
+  g.flat().forEach(l => { if (l.length) filled++; l.forEach(e=>{teachers.add(e.t); subj.add(e.s);}); });
+  const html = tableHTML((d,p) => {
+    const l = g[d][p];
+    if (l.length) return stack(l, {t:1, r:1});
+    const w = !isGroup && wideFor(c,d,p);
+    return w ? `<div class="ent act inferred">${esc(w.a)}</div>` : '';
+  });
+  return `<div class="title-row"><div><div class="sub">${isGroup ? 'กลุ่มเรียน (รวมหลายห้อง)' : 'ตารางเรียนนักเรียน'}</div><h2>${isGroup ? esc(c) : 'ม.'+esc(c)}</h2></div>
+    <div class="stats"><div class="stat"><b>${filled}</b><span>คาบเรียน/สัปดาห์</span></div><div class="stat"><b>${subj.size}</b><span>รายวิชา</span></div><div class="stat"><b>${teachers.size}</b><span>ครูผู้สอน</span></div></div></div>
+    ${html}${legend()}
+    <p class="note">ตารางนี้กลับข้างมาจากตารางสอนครู ช่องลายทแยงเป็นกิจกรรมที่ครูส่วนใหญ่มีตรงกัน (ชุมนุม, ลูกเสือ–เนตรนารีของ ม.ต้น) ซึ่งระบบเติมให้เอง ${isGroup ? '' : 'วิชาที่สอนเป็นกลุ่มสายวิทย์/ศิลป์หรือวิชาเสรีจะอยู่ในรายการ “กลุ่มเรียนอื่น” เพราะไฟล์ไม่ได้ระบุว่ากลุ่มนั้นมีห้องไหนบ้าง'}</p>`;
+}
+function panelRooms(){
+  const items=[{grp:'ห้องเรียน'}]; let other=false;
+  for (const r of rooms){ if (!/^\d+$/.test(r) && !other){ other=true; items.push({grp:'ห้องพิเศษ / ห้องครูต่างชาติ'}); }
+    const n = byRoom.get(r).flat().filter(x=>x.length).length;
+    items.push({id:r, go:'r:'+r, label:roomLabel(r), meta:n+'/50 คาบ'}); }
+  return `<label class="lbl">เลือกห้อง</label><div class="list">${listHTML(items, S.r)}</div>`;
+}
+function viewRoom(){
+  const r=S.r, g=byRoom.get(r); const used=g.flat().filter(x=>x.length).length;
+  return `<div class="title-row"><div><div class="sub">การใช้ห้อง</div><h2>${esc(roomLabel(r))}</h2></div>
+    <div class="stats"><div class="stat"><b>${used}</b><span>คาบที่มีการใช้</span></div><div class="stat"><b>${50-used}</b><span>คาบว่าง</span></div><div class="stat"><b>${Math.round(used/50*100)}%</b><span>อัตราการใช้</span></div></div></div>
+    ${tableHTML((d,p) => stack(g[d][p], {c:1, t:1}))}${legend()}`;
+}
+function panelFree(){
+  let h = '<label class="lbl">วัน</label><div class="chips">' + DAYS.map((d,i)=>`<button class="chip" data-fd="${i}" aria-pressed="${S.fd===i}">${d}</button>`).join('') + '</div>';
+  h += '<label class="lbl">คาบ</label><div class="chips">' + Array.from({length:NP},(_,p)=>`<button class="chip" data-fp="${p}" aria-pressed="${S.fp===p}">${p+1}</button>`).join('') + '</div>';
+  h += `<label class="lbl" for="fdept">กลุ่มสาระ</label><select id="fdept"><option value="">ทุกกลุ่มสาระ/งาน</option>${depts.map(g=>`<option ${g===S.dept?'selected':''}>${esc(g)}</option>`).join('')}</select>`;
+  h += '<p class="note">ใช้หาครูสอนแทน: เรียงคนที่มีคาบสอนในวันนั้นน้อยที่สุดไว้บนสุด ครูที่ติดประชุม/งานในคาบนั้นถือว่าไม่ว่าง</p>';
+  return h;
+}
+function viewFree(){
+  const d=S.fd, p=S.fp;
+  const free = T.filter(t => !busy.get(t.id)[d][p].length && (!S.dept || t.g===S.dept) && !/^ย้าย/.test(t.n))
+    .map(t => ({t, n: t.x.filter(e=>!e.a && e.d===d).length}));
+  const groups = new Map();
+  free.sort((a,b)=>a.n-b.n).forEach(f => { if (!groups.has(f.t.g)) groups.set(f.t.g, []); groups.get(f.t.g).push(f); });
+  const usedRooms = new Set(rooms.filter(r => byRoom.get(r)[d][p].length));
+  const freeRooms = rooms.filter(r => !usedRooms.has(r) && (/^\d+$/.test(r) || /^(com|l)\w*/.test(r) || r==='รฝง.'));
+  const gl=[...groups].sort((a,b)=>(a[0]==='วิทยากร')-(b[0]==='วิทยากร'));
+  return `<div class="title-row"><div><div class="sub">วัน${DAYS[d]} คาบ ${p+1}</div><h2>ครูว่าง ${free.length} คน · ห้องว่าง ${freeRooms.length} ห้อง</h2></div></div>
+  <div class="free-wrap">
+    <section class="box"><h3>ครูที่ว่าง</h3>
+      <div class="tlist">${gl.map(([g,fs]) => `<div class="dg"><h4>${esc(g)}</h4>${fs.map(f=>`<a data-go="t:${f.t.id}" href="#"><span>${esc(f.t.n)}</span><span class="load ${f.n<=2?'lo':''}">สอนวันนี้ ${f.n} คาบ</span></a>`).join('')}</div>`).join('') || '<div class="empty">ไม่มีครูว่างในคาบนี้</div>'}</div>
+    </section>
+    <section class="box"><h3>ห้องที่ว่าง</h3>
+      <div class="rooms">${freeRooms.map(r=>`<a data-go="r:${esc(r)}" href="#">${esc(r)}</a>`).join('') || '<span class="empty">ไม่มีห้องว่าง</span>'}</div>
+      <p class="note">นับเฉพาะห้องที่ปรากฏในตารางสอน ห้องที่ไม่เคยถูกใช้ในตารางจะไม่อยู่ในรายการ</p>
+    </section>
+  </div>`;
+}
+
+// ---- exam schedule: fills in once DATA.exams has rows {date:'2027-03-01', time:'08:30-10:00', level:'2', code:'ค22102', name:'คณิตศาสตร์', rooms:'ทุกห้อง'}
+function panelExam(){
+  const ex = DATA.exams||[];
+  const lv = [...new Set(ex.map(e=>e.level))].sort();
+  return `<label class="lbl">ระดับชั้น</label><div class="chips">${['ทั้งหมด',...lv].map(l=>`<button class="chip" data-el="${esc(l)}" aria-pressed="${(S.el||'ทั้งหมด')===l}">${l==='ทั้งหมด'?l:'ม.'+esc(l)}</button>`).join('')}</div>`;
+}
+function viewExam(){
+  const ex = (DATA.exams||[]).filter(e => !S.el || S.el==='ทั้งหมด' || e.level===S.el);
+  const head = `<div class="title-row"><div><div class="sub">ภาคเรียนที่ ${esc(DATA.meta.term)}/${esc(DATA.meta.year)}</div><h2>ตารางสอบ</h2></div></div>`;
+  if (!(DATA.exams||[]).length) return head + `<div class="box"><div class="empty"><b>ยังไม่มีตารางสอบของภาคเรียนนี้</b><br>ฝ่ายวิชาการจะประกาศตารางสอบกลางภาคและปลายภาคที่หน้านี้</div></div>`;
+  const byDate = new Map(); ex.forEach(e => { if(!byDate.has(e.date)) byDate.set(e.date,[]); byDate.get(e.date).push(e); });
+  const fmt = d => { try { return new Date(d+'T00:00:00').toLocaleDateString('th-TH',{weekday:'long',day:'numeric',month:'long',year:'numeric'}); } catch(_){ return d; } };
+  return head + [...byDate].sort().map(([d,l]) => `<section class="box"><h3>${esc(fmt(d))}</h3><div class="scroller"><table class="ex"><thead><tr><th>เวลา</th><th>ชั้น</th><th>รหัสวิชา</th><th>รายวิชา</th><th>ห้องสอบ</th><th>หมายเหตุ</th></tr></thead><tbody>${l.sort((a,b)=>(a.time||'').localeCompare(b.time||'')).map(e=>`<tr><td>${esc(e.time||'')}</td><td>ม.${esc(e.level||'')}</td><td>${esc(e.code||'')}</td><td>${esc(e.name||SUBJ[e.code]||'')}</td><td>${esc(e.rooms||'')}</td><td>${esc(e.note||'')}</td></tr>`).join('')}</tbody></table></div></section>`).join('');
+}
+
+function render(){
+  document.querySelectorAll('nav.tabs button').forEach(b => b.setAttribute('aria-selected', b.dataset.v===S.v));
+  const panel = document.getElementById('panel'), main = document.getElementById('main');
+  const keepScroll = panel.querySelector('.list')?.scrollTop;
+  if (S.v==='t'){ panel.innerHTML = panelTeachers(); main.innerHTML = viewTeacher(); }
+  else if (S.v==='c'){ panel.innerHTML = panelClasses(); main.innerHTML = viewClass(); }
+  else if (S.v==='r'){ panel.innerHTML = panelRooms(); main.innerHTML = viewRoom(); }
+  else if (S.v==='e'){ panel.innerHTML = panelExam(); main.innerHTML = viewExam(); }
+  else { panel.innerHTML = panelFree(); main.innerHTML = viewFree(); }
+  const cur = panel.querySelector('.pick[aria-current="true"]');
+  const list = panel.querySelector('.list');
+  if (list && keepScroll != null && S._lastV===S.v) list.scrollTop = keepScroll;
+  else if (cur && list) list.scrollTop = Math.max(0, cur.offsetTop - list.offsetTop - 80);
+  S._lastV = S.v;
+  const q = panel.querySelector('#q');
+  if (q) q.addEventListener('input', () => { S.q=q.value; const l=panel.querySelector('#list');
+      const tmp=document.createElement('div'); tmp.innerHTML=panelTeachers(); l.innerHTML=tmp.querySelector('#list').innerHTML; });
+  const dept = panel.querySelector('#dept,#fdept');
+  if (dept) dept.addEventListener('change', () => { S.dept=dept.value; save(); render(); });
+  panel.querySelectorAll('[data-el]').forEach(b => b.addEventListener('click', () => { S.el=b.dataset.el; render(); }));
+  panel.querySelectorAll('[data-fd]').forEach(b => b.addEventListener('click', () => { S.fd=+b.dataset.fd; save(); render(); }));
+  panel.querySelectorAll('[data-fp]').forEach(b => b.addEventListener('click', () => { S.fp=+b.dataset.fp; save(); render(); }));
+}
+document.getElementById('school').textContent = 'ตารางสอน ' + DATA.meta.school;
+document.getElementById('term').innerHTML = `ภาคเรียนที่ <b>${esc(DATA.meta.term)}</b> ปีการศึกษา <b>${esc(DATA.meta.year)}</b> · ครู ${T.length} คน · ${classes.filter(c=>/^\d\/\d+$/.test(c)).length} ห้องเรียน`;
+fromHash();
+if (!byClass.has(S.c)) S.c = classes[0];
+if (!tById.has(S.t)) S.t = T[0].id;
+if (!location.hash) history.replaceState(null,'','#'+hashFor());
+if (DATA.updatedAt) document.getElementById('term').insertAdjacentHTML('beforeend', ` · <span class="updated">อัปเดต ${esc(new Date(DATA.updatedAt).toLocaleString('th-TH',{dateStyle:'medium',timeStyle:'short'}))}</span>`);
+render();
+}
+</script>
+</body>
+</html>

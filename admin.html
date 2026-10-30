@@ -1,0 +1,355 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>จัดการตารางสอน BEN2</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Sans+Thai:wght@400;500;600&display=swap">
+<style>
+:root{
+  --bg:#F3F6F5; --surface:#FFFFFF; --sunk:#E9EEEC; --line:#D5DDDA; --fg:#14211E; --muted:#5A6965; --accent:#0E6B5A; --accent-fg:#FFFFFF;
+  --ok:#15803D; --warn:#B45309; --bad:#B91C1C;
+  --font-d:"Chakra Petch","IBM Plex Sans Thai",system-ui,sans-serif;
+  --font-b:"IBM Plex Sans Thai","Noto Sans Thai",system-ui,sans-serif; --r:8px;
+}
+@media (prefers-color-scheme:dark){:root{
+  --bg:#0F1614; --surface:#162120; --sunk:#1C2927; --line:#2A3835; --fg:#E4EDEA; --muted:#93A39E; --accent:#4CC3A6; --accent-fg:#06201A;
+  --ok:#4ADE80; --warn:#FBBF24; --bad:#F87171; color-scheme:dark}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--font-b);font-size:15px;line-height:1.5}
+[hidden]{display:none!important}
+.wrap{max-width:1100px;margin:0 auto;padding:0 max(16px,env(safe-area-inset-left,0px))}
+header{background:var(--surface);border-bottom:1px solid var(--line)}
+header .wrap{display:flex;flex-wrap:wrap;gap:6px 16px;align-items:baseline;justify-content:space-between;padding-block:14px}
+h1{font-family:var(--font-d);font-size:22px;margin:0}
+h2{font-family:var(--font-d);font-size:19px;margin:0 0 4px}
+.muted{color:var(--muted)}
+.status{font-size:14px;color:var(--muted)}
+.status b{color:var(--fg);font-weight:600}
+nav{display:flex;gap:4px;flex-wrap:wrap;padding-block:14px}
+nav button,.btn{font:inherit;font-weight:500;border:1px solid var(--line);background:var(--surface);color:var(--fg);padding:7px 14px;border-radius:999px;cursor:pointer}
+nav button[aria-selected="true"],.btn.primary{background:var(--accent);color:var(--accent-fg);border-color:var(--accent)}
+.btn{border-radius:6px}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn.ghost{background:none}
+.btn.danger{color:var(--bad)}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:18px;display:flex;flex-direction:column;gap:14px;margin-bottom:16px}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+input,select{font:inherit;padding:7px 9px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--fg);min-width:0}
+input[type=file]{padding:6px;background:var(--surface)}
+.tbl-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:6px}
+table{border-collapse:collapse;width:100%}
+th,td{padding:6px 8px;border-bottom:1px solid var(--line);text-align:left;vertical-align:middle;font-variant-numeric:tabular-nums}
+th{font-size:12px;color:var(--muted);font-weight:600;background:var(--sunk);white-space:nowrap}
+tr:last-child td{border-bottom:0}
+td input,td select{width:100%}
+.stats{display:flex;flex-wrap:wrap;gap:20px}
+.stat b{display:block;font-family:var(--font-d);font-size:22px;line-height:1.1}
+.stat span{font-size:12px;color:var(--muted)}
+.msg{padding:10px 12px;border-radius:6px;font-size:14px}
+.msg.ok{background:color-mix(in oklab,var(--ok) 14%,var(--surface));color:var(--fg)}
+.msg.bad{background:color-mix(in oklab,var(--bad) 14%,var(--surface))}
+.msg.warn{background:color-mix(in oklab,var(--warn) 14%,var(--surface))}
+.login{max-width:380px;margin:12vh auto 0}
+.login form{display:flex;flex-direction:column;gap:12px}
+.hint{font-size:13px;color:var(--muted)}
+.chip{display:inline-block;font-size:12px;padding:1px 8px;border-radius:999px;background:var(--sunk);color:var(--muted)}
+.subj-filter{max-width:280px}
+</style>
+<script src="config.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="tone-parser.js"></script>
+</head>
+<body>
+<header><div class="wrap">
+  <h1>จัดการตารางสอน/ตารางสอบ</h1>
+  <span class="status" id="status">กำลังโหลด…</span>
+</div></header>
+
+<div class="wrap">
+  <section class="card login" id="login" hidden>
+    <h2>เข้าสู่ระบบผู้ดูแล</h2>
+    <form id="login-form">
+      <label for="pw">รหัสผ่านผู้ดูแล</label>
+      <input type="password" id="pw" autocomplete="current-password" required>
+      <button class="btn primary" type="submit" id="login-btn">เข้าสู่ระบบ</button>
+      <div id="login-msg"></div>
+    </form>
+  </section>
+
+  <div id="app" hidden>
+    <nav role="tablist">
+      <button role="tab" data-tab="tt" id="tab-tt">ตารางสอน (T_ONE)</button>
+      <button role="tab" data-tab="ex" id="tab-ex">ตารางสอบ</button>
+      <button role="tab" data-tab="pe" id="tab-pe">เวลาคาบ</button>
+      <button role="tab" data-tab="su" id="tab-su">ชื่อวิชา</button>
+      <a class="btn ghost" href="index.html" target="_blank" rel="noopener" style="text-decoration:none">ดูหน้าตาราง ↗</a>
+      <button class="btn ghost" id="logout" type="button">ออกจากระบบ</button>
+    </nav>
+
+    <!-- ตารางสอน -->
+    <section data-panel="tt">
+      <div class="card">
+        <div><h2>อัปโหลดไฟล์ตารางสอน</h2>
+          <div class="hint">ใช้ไฟล์ T_ONE (.XLS) ที่ส่งออกจากโปรแกรมจัดตารางสอน ระบบจะแทนที่ตารางเดิมทั้งหมดเมื่อกดบันทึก</div></div>
+        <input type="file" id="tt-file" accept=".xls,.xlsx">
+        <div id="tt-preview"></div>
+      </div>
+    </section>
+
+    <!-- ตารางสอบ -->
+    <section data-panel="ex" hidden>
+      <div class="card">
+        <div><h2>ตารางสอบ</h2>
+          <div class="hint">เพิ่มทีละรายการ หรือนำเข้าจากไฟล์ Excel ตามแม่แบบ ชื่อวิชาที่เว้นว่างจะใช้ชื่อจากแท็บ "ชื่อวิชา"</div></div>
+        <div class="row">
+          <button class="btn" id="ex-add" type="button">+ เพิ่มรายการ</button>
+          <label class="btn" for="ex-file" style="margin:0">นำเข้าจาก Excel</label>
+          <input type="file" id="ex-file" accept=".xlsx,.xls,.csv" hidden>
+          <button class="btn ghost" id="ex-template" type="button">ดาวน์โหลดแม่แบบ</button>
+          <button class="btn ghost danger" id="ex-clear" type="button">ล้างทั้งหมด</button>
+        </div>
+        <div class="tbl-wrap"><table>
+          <thead><tr><th>วันที่</th><th>เวลา</th><th>ชั้น</th><th>รหัสวิชา</th><th>ชื่อวิชา</th><th>ห้องสอบ</th><th>หมายเหตุ</th><th></th></tr></thead>
+          <tbody id="ex-body"></tbody>
+        </table></div>
+        <div class="row"><button class="btn primary" id="ex-save" type="button">บันทึกตารางสอบ</button><span id="ex-msg"></span></div>
+      </div>
+    </section>
+
+    <!-- เวลาคาบ -->
+    <section data-panel="pe" hidden>
+      <div class="card">
+        <div><h2>เวลาคาบเรียน</h2><div class="hint">แสดงใต้หัวคอลัมน์ "คาบ 1–10" ในหน้าตาราง เว้นว่างได้</div></div>
+        <div class="tbl-wrap" style="max-width:460px"><table>
+          <thead><tr><th>คาบ</th><th>เริ่ม</th><th>จบ</th></tr></thead>
+          <tbody id="pe-body"></tbody>
+        </table></div>
+        <div class="row"><button class="btn primary" id="pe-save" type="button">บันทึกเวลาคาบ</button><span id="pe-msg"></span></div>
+      </div>
+    </section>
+
+    <!-- ชื่อวิชา -->
+    <section data-panel="su" hidden>
+      <div class="card">
+        <div><h2>ชื่อวิชา</h2><div class="hint">รายการรหัสวิชาที่พบในตารางสอนปัจจุบัน ใส่ชื่อวิชาเพื่อให้แสดงในตาราง หรือนำเข้าจาก Excel (คอลัมน์ A รหัสวิชา, B ชื่อวิชา)</div></div>
+        <div class="row">
+          <input type="search" id="su-q" class="subj-filter" placeholder="กรองรหัส/ชื่อวิชา">
+          <label class="row" style="gap:6px"><input type="checkbox" id="su-empty"> เฉพาะที่ยังไม่มีชื่อ</label>
+          <label class="btn" for="su-file" style="margin:0">นำเข้าจาก Excel</label>
+          <input type="file" id="su-file" accept=".xlsx,.xls,.csv" hidden>
+        </div>
+        <div class="tbl-wrap"><table>
+          <thead><tr><th>รหัสวิชา</th><th>ชื่อวิชา</th><th>ครูผู้สอน</th></tr></thead>
+          <tbody id="su-body"></tbody>
+        </table></div>
+        <div class="row"><button class="btn primary" id="su-save" type="button">บันทึกชื่อวิชา</button><span id="su-msg"></span></div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<script>
+const API = window.BEN2TT_API;
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+let PW = '';
+try { PW = sessionStorage.getItem('ben2tt-pw') || ''; } catch(_) {}
+let CUR = null;          // ข้อมูลปัจจุบันจากระบบ
+let PARSED = null;       // ผลอ่านไฟล์ T_ONE ที่รอบันทึก
+let EXAMS = [], PERIODS = [], SUBJ = {};
+
+async function api(body){
+  const res = await fetch(API, {method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body: JSON.stringify({...body, password: PW})});
+  const j = await res.json();
+  if (!j.ok) throw new Error(j.error || 'บันทึกไม่สำเร็จ');
+  try { localStorage.removeItem('ben2tt-cache'); } catch(_) {}
+  return j;
+}
+async function loadCurrent(){
+  const j = await (await fetch(API + '?action=data')).json();
+  if (!j.ok) throw new Error(j.error || 'โหลดข้อมูลไม่สำเร็จ');
+  CUR = j;
+  EXAMS = (j.exams || []).map(x => ({...x}));
+  PERIODS = Array.from({length:10}, (_,i) => { const x = (j.periods||[]).find(q => q.p === i+1) || {}; return {p:i+1, start:x.start||'', end:x.end||''}; });
+  SUBJ = {...(j.subjects || {})};
+  renderStatus(); renderExams(); renderPeriods(); renderSubjects();
+}
+function renderStatus(){
+  const m = CUR.meta || {};
+  const n = (CUR.teachers || []).length;
+  const up = CUR.updatedAt ? new Date(CUR.updatedAt).toLocaleString('th-TH', {dateStyle:'medium', timeStyle:'short'}) : '–';
+  $('status').innerHTML = n ? `ตารางปัจจุบัน: ภาคเรียนที่ <b>${esc(m.term)}/${esc(m.year)}</b> · ครู ${n} คน · สอบ ${EXAMS.length} รายการ · อัปเดต ${esc(up)}` : 'ยังไม่มีตารางสอนในระบบ';
+}
+function msg(el, kind, text){ $(el).innerHTML = text ? `<span class="msg ${kind}">${esc(text)}</span>` : ''; }
+async function withBtn(btnId, msgId, fn){
+  const b = $(btnId); b.disabled = true; msg(msgId, '', ''); const t = b.textContent; b.textContent = 'กำลังบันทึก…';
+  try { await fn(); msg(msgId, 'ok', 'บันทึกแล้ว'); }
+  catch (e) { msg(msgId, 'bad', e.message); if (/รหัสผ่าน/.test(e.message)) logout(); }
+  finally { b.disabled = false; b.textContent = t; }
+}
+
+/* ---------- login ---------- */
+async function showApp(){
+  $('login').hidden = true; $('app').hidden = false;
+  selectTab('tt');
+  try { await loadCurrent(); } catch (e) { $('status').textContent = 'โหลดข้อมูลปัจจุบันไม่สำเร็จ: ' + e.message; }
+}
+function logout(){ PW = ''; try { sessionStorage.removeItem('ben2tt-pw'); } catch(_) {} $('app').hidden = true; $('login').hidden = false; }
+$('login-form').addEventListener('submit', async ev => {
+  ev.preventDefault();
+  PW = $('pw').value; $('login-btn').disabled = true; msg('login-msg', '', '');
+  try { await api({action:'login'}); try { sessionStorage.setItem('ben2tt-pw', PW); } catch(_) {} showApp(); }
+  catch (e) { PW = ''; msg('login-msg', 'bad', e.message); }
+  finally { $('login-btn').disabled = false; }
+});
+$('logout').addEventListener('click', logout);
+
+/* ---------- tabs ---------- */
+function selectTab(t){
+  document.querySelectorAll('nav [data-tab]').forEach(b => b.setAttribute('aria-selected', b.dataset.tab === t));
+  document.querySelectorAll('[data-panel]').forEach(p => p.hidden = p.dataset.panel !== t);
+}
+document.querySelectorAll('nav [data-tab]').forEach(b => b.addEventListener('click', () => selectTab(b.dataset.tab)));
+
+/* ---------- read any spreadsheet file into rows ---------- */
+async function readRows(file){
+  const buf = await file.arrayBuffer();
+  const wb = XLSX.read(buf, {type:'array', cellDates:true});
+  return XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {header:1, defval:'', raw:false, dateNF:'yyyy-mm-dd'});
+}
+
+/* ---------- ตารางสอน ---------- */
+$('tt-file').addEventListener('change', async () => {
+  const f = $('tt-file').files[0]; if (!f) return;
+  const box = $('tt-preview'); box.innerHTML = '<span class="muted">กำลังอ่านไฟล์…</span>';
+  try {
+    const rows = await readRows(f);
+    PARSED = parseTOne(rows);
+  } catch (e) { box.innerHTML = `<div class="msg bad">อ่านไฟล์ไม่ได้: ${esc(e.message)}</div>`; PARSED = null; return; }
+  const P = PARSED, n = P.teachers.length;
+  const slots = P.teachers.reduce((a,t) => a + t.x.length, 0);
+  const classes = new Set(); P.teachers.forEach(t => t.x.forEach(e => e.c && e.c.replace(/^(\d)\/(\d+)-(\d+)$/, (m,l,a,b)=>{ for(let i=+a;i<=+b;i++) classes.add(l+'/'+i); return ''; }) && /^\d\/\d+$/.test(e.c) && classes.add(e.c)));
+  const depts = new Set(P.teachers.map(t => t.g));
+  const curM = (CUR && CUR.meta) || {};
+  const sameTerm = curM.term === P.meta.term && curM.year === P.meta.year;
+  box.innerHTML = `
+    <div class="stats">
+      <div class="stat"><b>${esc(P.meta.term)}/${esc(P.meta.year)}</b><span>ภาคเรียน/ปีการศึกษา</span></div>
+      <div class="stat"><b>${n}</b><span>ครู</span></div>
+      <div class="stat"><b>${depts.size}</b><span>กลุ่มสาระ/งาน</span></div>
+      <div class="stat"><b>${classes.size}</b><span>ห้องเรียน</span></div>
+      <div class="stat"><b>${slots.toLocaleString()}</b><span>คาบทั้งหมด</span></div>
+    </div>
+    ${P.warnings.map(w => `<div class="msg warn">${esc(w)}</div>`).join('')}
+    ${CUR && (CUR.teachers||[]).length && !sameTerm ? `<div class="msg warn">ไฟล์นี้เป็นภาคเรียน ${esc(P.meta.term)}/${esc(P.meta.year)} แต่ตารางในระบบตอนนี้เป็น ${esc(curM.term)}/${esc(curM.year)} ตรวจสอบให้แน่ใจก่อนบันทึก</div>` : ''}
+    <div class="row"><button class="btn primary" id="tt-save" type="button" ${n ? '' : 'disabled'}>บันทึกแทนที่ตารางเดิม</button><span id="tt-msg"></span></div>`;
+  $('tt-save').addEventListener('click', () => withBtn('tt-save', 'tt-msg', async () => {
+    await api({action:'saveTimetable', data:{meta:P.meta, teachers:P.teachers}});
+    await loadCurrent();
+  }));
+});
+
+/* ---------- ตารางสอบ ---------- */
+const LEVELS = ['1','2','3','4','5','6'];
+function renderExams(){
+  $('ex-body').innerHTML = EXAMS.length ? EXAMS.map((x,i) => `<tr data-i="${i}">
+    <td><input type="date" data-k="date" value="${esc(x.date)}" aria-label="วันที่"></td>
+    <td><input data-k="time" value="${esc(x.time)}" placeholder="08.30–10.00" aria-label="เวลา" style="min-width:110px"></td>
+    <td><select data-k="level" aria-label="ชั้น" style="min-width:72px">${['',...LEVELS].map(l => `<option value="${l}" ${x.level===l?'selected':''}>${l ? 'ม.'+l : '–'}</option>`).join('')}</select></td>
+    <td><input data-k="code" value="${esc(x.code)}" placeholder="ค22102" aria-label="รหัสวิชา" style="min-width:90px"></td>
+    <td><input data-k="name" value="${esc(x.name)}" placeholder="${esc(SUBJ[x.code]||'')}" aria-label="ชื่อวิชา" style="min-width:150px"></td>
+    <td><input data-k="rooms" value="${esc(x.rooms)}" placeholder="ห้องเรียนปกติ" aria-label="ห้องสอบ" style="min-width:120px"></td>
+    <td><input data-k="note" value="${esc(x.note)}" aria-label="หมายเหตุ" style="min-width:100px"></td>
+    <td><button class="btn ghost danger" data-del="${i}" type="button" aria-label="ลบรายการ">ลบ</button></td></tr>`).join('')
+    : '<tr><td colspan="8" class="muted" style="text-align:center;padding:24px">ยังไม่มีรายการสอบ กด "+ เพิ่มรายการ" หรือนำเข้าจาก Excel</td></tr>';
+}
+$('ex-body').addEventListener('input', ev => {
+  const el = ev.target, tr = el.closest('tr[data-i]'); if (!tr || !el.dataset.k) return;
+  EXAMS[+tr.dataset.i][el.dataset.k] = el.value;
+  if (el.dataset.k === 'code') tr.querySelector('[data-k=name]').placeholder = SUBJ[el.value.trim()] || '';
+});
+$('ex-body').addEventListener('click', ev => { const b = ev.target.closest('[data-del]'); if (!b) return; EXAMS.splice(+b.dataset.del, 1); renderExams(); });
+$('ex-add').addEventListener('click', () => {
+  const last = EXAMS[EXAMS.length-1] || {};
+  EXAMS.push({date:last.date||'', time:'', level:last.level||'', code:'', name:'', rooms:'', note:''}); renderExams();
+});
+$('ex-clear').addEventListener('click', () => { EXAMS = []; renderExams(); msg('ex-msg','warn','ล้างรายการแล้ว กดบันทึกเพื่อยืนยัน'); });
+const EX_HEAD = ['วันที่ (ปปปป-ดด-วว)', 'เวลา', 'ระดับชั้น (1-6)', 'รหัสวิชา', 'ชื่อวิชา', 'ห้องสอบ', 'หมายเหตุ'];
+$('ex-template').addEventListener('click', () => {
+  const ws = XLSX.utils.aoa_to_sheet([EX_HEAD, ['2027-02-22', '08.30-10.00', '2', 'ค22102', 'คณิตศาสตร์พื้นฐาน', 'ห้องเรียนปกติ', '']]);
+  ws['!cols'] = [{wch:18},{wch:14},{wch:14},{wch:12},{wch:28},{wch:18},{wch:18}];
+  const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'ตารางสอบ');
+  XLSX.writeFile(wb, 'แม่แบบตารางสอบ.xlsx');
+});
+function normDate(v){
+  v = String(v || '').trim(); let m;
+  if ((m = /^(\d{4})-(\d{1,2})-(\d{1,2})/.exec(v))) { let y = +m[1]; if (y > 2400) y -= 543; return `${y}-${m[2].padStart(2,'0')}-${m[3].padStart(2,'0')}`; }
+  if ((m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(v))) { let y = +m[3]; if (y > 2400) y -= 543; return `${y}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`; }
+  return v;
+}
+$('ex-file').addEventListener('change', async () => {
+  const f = $('ex-file').files[0]; if (!f) return; $('ex-file').value = '';
+  try {
+    const rows = (await readRows(f)).filter(r => r.some(c => String(c).trim()));
+    const body = /วันที่|date/i.test(String(rows[0] && rows[0][0])) ? rows.slice(1) : rows;
+    const add = body.map(r => ({date:normDate(r[0]), time:String(r[1]||'').trim(), level:String(r[2]||'').replace(/\D/g,'').slice(0,1), code:String(r[3]||'').trim(), name:String(r[4]||'').trim(), rooms:String(r[5]||'').trim(), note:String(r[6]||'').trim()}));
+    EXAMS = EXAMS.concat(add); renderExams();
+    msg('ex-msg', 'warn', `นำเข้า ${add.length} รายการ ตรวจสอบแล้วกดบันทึก`);
+  } catch (e) { msg('ex-msg', 'bad', 'อ่านไฟล์ไม่ได้: ' + e.message); }
+});
+$('ex-save').addEventListener('click', () => withBtn('ex-save', 'ex-msg', async () => {
+  const rows = EXAMS.filter(x => x.date || x.code).sort((a,b) => (a.date+a.time).localeCompare(b.date+b.time));
+  await api({action:'saveExams', rows}); await loadCurrent();
+}));
+
+/* ---------- เวลาคาบ ---------- */
+function renderPeriods(){
+  $('pe-body').innerHTML = PERIODS.map((x,i) => `<tr><td>คาบ ${x.p}</td>
+    <td><input type="time" data-i="${i}" data-k="start" value="${esc(x.start)}" aria-label="คาบ ${x.p} เริ่ม"></td>
+    <td><input type="time" data-i="${i}" data-k="end" value="${esc(x.end)}" aria-label="คาบ ${x.p} จบ"></td></tr>`).join('');
+}
+$('pe-body').addEventListener('input', ev => { const el = ev.target; if (el.dataset.k) PERIODS[+el.dataset.i][el.dataset.k] = el.value; });
+$('pe-save').addEventListener('click', () => withBtn('pe-save', 'pe-msg', async () => { await api({action:'savePeriods', rows:PERIODS}); await loadCurrent(); }));
+
+/* ---------- ชื่อวิชา ---------- */
+function subjectIndex(){
+  const m = new Map();
+  (CUR && CUR.teachers || []).forEach(t => t.x.forEach(e => { if (!e.s) return; if (!m.has(e.s)) m.set(e.s, new Set()); m.get(e.s).add(t.n); }));
+  Object.keys(SUBJ).forEach(k => { if (!m.has(k)) m.set(k, new Set()); });
+  return [...m].sort((a,b) => a[0].localeCompare(b[0], 'th'));
+}
+function renderSubjects(){
+  const q = $('su-q').value.trim().toLowerCase(), onlyEmpty = $('su-empty').checked;
+  const list = subjectIndex().filter(([k]) => (!q || k.toLowerCase().includes(q) || (SUBJ[k]||'').toLowerCase().includes(q)) && (!onlyEmpty || !SUBJ[k]));
+  const missing = subjectIndex().filter(([k]) => !SUBJ[k]).length;
+  $('su-body').innerHTML = list.map(([k, ts]) => `<tr><td><b>${esc(k)}</b></td>
+    <td><input data-code="${esc(k)}" value="${esc(SUBJ[k]||'')}" aria-label="ชื่อวิชา ${esc(k)}" style="min-width:220px"></td>
+    <td class="muted" style="font-size:13px">${esc([...ts].slice(0,3).join(', '))}${ts.size>3?` <span class="chip">+${ts.size-3}</span>`:''}</td></tr>`).join('')
+    || '<tr><td colspan="3" class="muted" style="text-align:center;padding:24px">ไม่พบรหัสวิชา</td></tr>';
+  if (!$('su-msg').textContent) msg('su-msg', missing ? 'warn' : 'ok', missing ? `ยังไม่มีชื่อ ${missing} วิชา` : 'ครบทุกวิชาแล้ว');
+}
+$('su-q').addEventListener('input', renderSubjects);
+$('su-empty').addEventListener('change', renderSubjects);
+$('su-body').addEventListener('input', ev => { const el = ev.target; if (el.dataset.code) SUBJ[el.dataset.code] = el.value; });
+$('su-file').addEventListener('change', async () => {
+  const f = $('su-file').files[0]; if (!f) return; $('su-file').value = '';
+  try {
+    let n = 0;
+    (await readRows(f)).forEach(r => { const k = String(r[0]||'').trim(), v = String(r[1]||'').trim(); if (k && v && !/รหัส/.test(k)) { SUBJ[k] = v; n++; } });
+    msg('su-msg', 'warn', `นำเข้า ${n} วิชา ตรวจสอบแล้วกดบันทึก`); renderSubjects();
+  } catch (e) { msg('su-msg', 'bad', 'อ่านไฟล์ไม่ได้: ' + e.message); }
+});
+$('su-save').addEventListener('click', () => withBtn('su-save', 'su-msg', async () => { await api({action:'saveSubjects', subjects:SUBJ}); await loadCurrent(); }));
+
+/* ---------- start ---------- */
+if (!API || /ใส่ลิงก์/.test(API)) { $('status').textContent = 'ยังไม่ได้ตั้งค่าลิงก์ Apps Script ในไฟล์ config.js'; }
+else if (PW) { api({action:'login'}).then(showApp).catch(() => { logout(); }); $('status').textContent = ''; }
+else { $('login').hidden = false; $('status').textContent = ''; }
+</script>
+</body>
+</html>
