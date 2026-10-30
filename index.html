@@ -115,6 +115,16 @@ html{-webkit-text-size-adjust:100%}body{margin:0}[hidden]{display:none!important
 .ent.act.pdf{border:1.5px dashed var(--line);background:var(--surface);flex-direction:column;gap:3px}
 .ent .glinks{display:flex;flex-wrap:wrap;gap:2px 6px;justify-content:center;font-size:11px}
 .ent.pdf:not(.act){outline:1.5px dashed color-mix(in oklab,var(--h) 60%,var(--surface));outline-offset:-1.5px}
+.ent.minis{background:var(--surface);border:1px solid var(--line);padding:4px 5px;gap:3px;overflow:visible}
+.ent.minis.pdf{border-style:dashed;outline:none}
+.mh{font-size:11px;font-weight:600;color:var(--muted);display:flex;flex-wrap:wrap;gap:2px 6px;align-items:baseline}
+.mh .glinks{font-weight:400;justify-content:flex-start}
+.mini{--h:var(--h-is);background:color-mix(in oklab,var(--h) var(--mix),var(--surface));border-radius:4px;padding:2px 5px;font-size:11px;line-height:1.3}
+.mini .mc{font-family:var(--font-d);font-weight:600;color:color-mix(in oklab,var(--h) var(--mix-strong),var(--fg))}
+.mini .mn{font-weight:500}
+.mini.one{padding:1px 5px;line-height:1.25}
+.mini .md{display:block;color:var(--muted);font-size:10.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mini .md a{color:var(--muted)}
 .ent .pair{font-family:var(--font-b);font-weight:500;font-size:10.5px;color:var(--muted);margin-left:2px}
 .loading{padding:60px 10px;text-align:center;color:var(--muted)}
 .errbox{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:20px;max-width:60ch}
@@ -190,7 +200,7 @@ if (!DATA.teachers || !DATA.teachers.length) {
   mainEl.innerHTML = '<div class="errbox"><b>ยังไม่มีข้อมูลตารางสอน</b><br>ฝ่ายวิชาการยังไม่ได้อัปโหลดไฟล์ตารางสอนของภาคเรียนนี้</div>';
   return;
 }
-const SUBJ = DATA.subjects || {};
+const SUBJ = Object.assign({}, (DATA.pdf && DATA.pdf.subjects) || {}, DATA.subjects || {});
 const PT = Array.from({length:10}, (_,i) => { const x=(DATA.periods||[]).find(q=>q.p===i+1); return x && x.start ? x.start + (x.end ? '–' + x.end : '') : ''; });
 const DAYS = ['จันทร์','อังคาร','พุธ','พฤหัสบดี','ศุกร์'];
 const DAYS_S = ['จ.','อ.','พ.','พฤ.','ศ.'];
@@ -319,7 +329,10 @@ function pdfHTML(x, mode, c, d, p){
   if (x.a){
     const gs = /^เลือก/.test(x.a) ? groupsAt(c,d,p,x.a) : [];
     const label = x.a.replace(/^เลือก\s*/, 'วิชาเลือก ').replace('พัฒนา ศักยภาพ','พัฒนาศักยภาพ');
-    return `<div class="ent act pdf" ${tip}><span>${esc(label)}</span>${gs.length ? `<span class="glinks">${gs.map(g => link('c', g, 'ดูกลุ่ม '+g)).join(' ')}</span>` : ''}</div>`;
+    const lv = levelOf(c);
+    const items = gs.flatMap(g => byClass.get(g)[d][p].filter(e => !/^เสรี/.test(g) || !/^\d$/.test(e.r||'') || +e.r === lv));
+    if (items.length) return `<div class="ent minis pdf" ${tip}><div class="mh">${esc(label)} <span class="glinks">${gs.map(g => link('c', g, 'กลุ่ม '+g)).join(' ')}</span></div>${miniList(items, {t:1, lv:0, oneLine: items.length > 4})}</div>`;
+    return `<div class="ent act pdf" ${tip}><span>${esc(label)}</span></div>`;
   }
   const e = mode === 'c' ? {s:x.s, t:tById.has(x.t) ? x.t : undefined, r:x.r} : {s:x.s, c:x.c, r:x.r};
   return entHTML(e, mode === 'c' ? {t:1, r:1} : {c:1, r:1}, false).replace('<div class="ent', `<div ${tip} class="ent pdf`);
@@ -343,7 +356,7 @@ function entHTML(e, show, compact){
   const parts = [];
   if (show.c && cs.length) parts.push(cs.map(c => link('c', expandClass(c)[0], (/^\d/.test(c)?'ม.':'')+c)).join(', '));
   if (show.t && ts.length) parts.push(ts.map(id => link('t', id, shortT(id))).join(', '));
-  if (show.r && rs.length) parts.push(rs.map(r => isRoom(r) ? link('r', r, roomLabel(r)) : 'กลุ่ม '+esc(r)).join(', '));
+  if (show.r && rs.length) parts.push(rs.map(r => isRoom(r) ? link('r', r, roomLabel(r)) : (/^เสรี/.test(cs[0]||'') ? 'ม.' : 'กลุ่ม ')+esc(r)).join(', '));
   const nm = SUBJ[e.s];
   const multi = ts.length > 1 && show.t && !compact;
   // สอนร่วมหลายคน: แสดงครูคนละบรรทัด ชื่อวิชาเหลือบรรทัดเดียว
@@ -352,8 +365,21 @@ function entHTML(e, show, compact){
     : `<span class="ln det">${parts.join(' · ')}</span>`;
   return `<div class="ent${compact?' many':''}" style="--h:${hueOf(e.s)}" title="${esc(e.s+(nm?' '+nm:''))}"><span class="ln code">${esc(e.s)}${ts.length>1 ? ` <small class="pair">${ts.length} คน</small>` : ''}</span>${nm && !compact ? `<span class="sn${multi?' one':''}">${esc(nm)}</span>` : ''}${detail}</div>`;
 }
+// แสดงทุกวิชาในช่อง (ใช้กับตารางกลุ่มวิชาเลือก/เสรี ที่มีหลายวิชาเรียนพร้อมกัน)
+function miniList(list, show){
+  return mergeSame(list).map(e => {
+    const nm = SUBJ[e.s] || '';
+    const who = (e.ts||[]).map(id => link('t', id, shortT(id))).join(', ');
+    const where = show.lv ? '' : (e.rs||[]).filter(isRoom).map(r => link('r', r, roomLabel(r))).join(', ');
+    const lvl = show.lv && e.rs && e.rs.length ? 'ม.'+e.rs.join(',') : '';
+    const tip = esc(e.s+' '+nm+' — '+(e.ts||[]).map(shortT).join(', '));
+    if (show.oneLine) return `<div class="mini one" style="--h:${hueOf(e.s)}" title="${tip}"><span class="mc">${esc(e.s)}</span> <span class="mn">${esc(nm)}</span></div>`;
+    return `<div class="mini" style="--h:${hueOf(e.s)}" title="${tip}"><span class="mc">${esc(e.s)}</span> <span class="mn">${esc(nm)}</span><span class="md">${[lvl, who, where].filter(Boolean).join(' · ')}</span></div>`;
+  }).join('');
+}
 function stack(list, show){
   if (!list.length) return '';
+  if (show.all) return `<div class="ent minis">${miniList(list, show)}</div>`;
   list = mergeSame(list);
   if (list.length <= 2) return list.map(e => entHTML(e, show, list.length>1)).join('');
   return list.slice(0,2).map(e => entHTML(e, show, true)).join('') + `<span class="more">+${list.length-2} รายวิชา</span>`;
@@ -409,7 +435,7 @@ function viewClass(){
   g.flat().forEach(l => { if (l.length) filled++; l.forEach(e=>{teachers.add(e.t); subj.add(e.s);}); });
   const html = tableHTML((d,p) => {
     const l = g[d][p];
-    if (l.length) return stack(l, {t:1, r:1});
+    if (l.length) return stack(l, isGroup ? {t:1, r:1, all:1, lv:/^เสรี/.test(c)} : {t:1, r:1});
     const x = !isGroup && pdfC(c,d,p);
     if (x) return pdfHTML(x, 'c', c, d, p);
     const w = !isGroup && wideFor(c,d,p);
@@ -503,8 +529,13 @@ function sheetSpec(){
   if (S.v==='c'){ const c=S.c, g=byClass.get(c), grp=!/^\d\/\d+$/.test(c);
     return {lunch: lunchFor(c), kicker:'ตารางเรียน', title: grp ? c : 'ม.'+c, sub: grp ? 'กลุ่มเรียน (รวมหลายห้อง)' : 'ตารางเรียนนักเรียน', term, file:`ตารางเรียน-${grp?c:'ม.'+c.replace('/','-')}`,
       cell:(d,p)=>{ const l=g[d][p]; if(!l.length){ const x=!grp&&pdfC(c,d,p);
-          if (x) return [x.a ? {act:x.a.replace(/^เลือก\s*/,'วิชาเลือก ').replace('พัฒนา ศักยภาพ','พัฒนาศักยภาพ')} : {s:x.s, det:[tById.has(x.t)?shortT(x.t):'', x.r&&isRoom(x.r)?roomLabel(x.r):''].filter(Boolean).join(' · ')}];
+          if (x && x.a) { const label=x.a.replace(/^เลือก\s*/,'วิชาเลือก ').replace('พัฒนา ศักยภาพ','พัฒนาศักยภาพ'), lv=levelOf(c);
+            const gs=/^เลือก/.test(x.a)?groupsAt(c,d,p,x.a):[];
+            const its=mergeSame(gs.flatMap(g=>byClass.get(g)[d][p].filter(e=>!/^เสรี/.test(g)||!/^\d$/.test(e.r||'')||+e.r===lv)));
+            return its.length ? [{list:label, rows:its.map(e=>({s:e.s, t:(e.ts||[]).map(shortT).join(', ')}))}] : [{act:label}]; }
+          if (x) return [{s:x.s, det:[tById.has(x.t)?shortT(x.t):'', x.r&&isRoom(x.r)?roomLabel(x.r):''].filter(Boolean).join(' · ')}];
           const w=!grp&&wideFor(c,d,p); return w?[{act:w.a}]:[]; }
+        if (grp && mergeSame(l).length > 2) return [{list:'', rows:mergeSame(l).map(e=>({s:e.s, t:[/^เสรี/.test(c)&&e.rs.length?'ม.'+e.rs.join(','):'', (e.ts||[]).map(shortT).join(', ')].filter(Boolean).join(' · ')}))}];
         return mergeX(l, e=>[e.ts.map(shortT).join(', '), e.rs.filter(isRoom).map(roomLabel).join(', ')].filter(Boolean).join(' · ')); }}; }
   const r=S.r, g=byRoom.get(r);
   return {kicker:'ตารางการใช้ห้อง', title:roomLabel(r), sub:'การใช้ห้องตลอดสัปดาห์', term, file:`ตารางห้อง-${r}`,
@@ -571,6 +602,21 @@ async function drawSheet(){
       const eh=(rowH-2*pad-gap*(shown.length-1)-(more?12:0))/shown.length;
       shown.forEach((it,i)=>{
         const ex=x+pad, ey=y+pad+i*(eh+gap), ew=colW-2*pad;
+        if (it.list !== undefined){   // รายการหลายวิชาในช่องเดียว: แสดงรหัส+ชื่อวิชา+ครู ทีละบรรทัด
+          ctx.fillStyle='#F6F8F7'; rrect(ctx,ex,ey,ew,eh,4); ctx.fill(); ctx.strokeStyle=LINE; ctx.setLineDash([3,2]); ctx.stroke(); ctx.setLineDash([]);
+          ctx.save(); rrect(ctx,ex,ey,ew,eh,4); ctx.clip();
+          let ty=ey+11; const tx=ex+4, tw=ew-8;
+          if (it.list){ ctx.fillStyle=MUTED; ctx.font=`600 9.5px ${FB}`; ctx.fillText(clip(ctx,it.list,tw), tx, ty); ty+=11.5; }
+          const avail = ey+eh-ty, n = it.rows.length, LH = 11;
+          const withT = n*2*LH <= avail;                 // พื้นที่พอ: แสดงครูใต้ชื่อวิชา
+          const cols = withT || n*8.6 <= avail ? 1 : 2;  // ไม่พอ: ย่อบรรทัด หรือแบ่ง 2 คอลัมน์
+          const per = Math.ceil(n/cols), lh = Math.min(LH, avail/(per*(withT?2:1))), cwid = tw/cols - (cols>1?4:0);
+          it.rows.forEach((r,i)=>{ const hex=hexOf(r.s), col=Math.floor(i/per), cx=tx+col*(tw/cols);
+            let yy = ty + (i%per)*lh*(withT?2:1);
+            ctx.fillStyle=mixHex(hex,.72,'#14211E'); ctx.font=`600 ${lh<10?8:9}px ${FD}`; ctx.fillText(r.s, cx, yy);
+            const w0=ctx.measureText(r.s+' ').width; ctx.fillStyle=INK; ctx.font=`400 ${lh<10?8:9}px ${FB}`; ctx.fillText(clip(ctx,SUBJ[r.s]||'',cwid-w0), cx+w0, yy);
+            if (withT && r.t){ ctx.fillStyle=MUTED; ctx.font=`400 8.5px ${FB}`; ctx.fillText(clip(ctx,r.t,cwid-6), cx+6, yy+lh); } });
+          ctx.restore(); return; }
         if (it.act){ ctx.fillStyle=SUNK; rrect(ctx,ex,ey,ew,eh,4); ctx.fill(); ctx.fillStyle=MUTED; ctx.font=`500 10px ${FB}`; ctx.textAlign='center';
           const ls=wrap(ctx,it.act,ew-8).slice(0,3); ls.forEach((l,k)=>ctx.fillText(l, ex+ew/2, ey+eh/2-(ls.length-1)*6.5+k*13+3.5)); ctx.textAlign='left'; return; }
         const hex=hexOf(it.s); ctx.fillStyle=mixHex(hex,.16); rrect(ctx,ex,ey,ew,eh,4); ctx.fill();
