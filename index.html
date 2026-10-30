@@ -329,10 +329,8 @@ function pdfHTML(x, mode, c, d, p){
   if (x.a){
     const gs = /^เลือก/.test(x.a) ? groupsAt(c,d,p,x.a) : [];
     const label = x.a.replace(/^เลือก\s*/, 'วิชาเลือก ').replace('พัฒนา ศักยภาพ','พัฒนาศักยภาพ');
-    const lv = levelOf(c);
-    const items = gs.flatMap(g => byClass.get(g)[d][p].filter(e => !/^เสรี/.test(g) || !/^\d$/.test(e.r||'') || +e.r === lv));
-    if (items.length) return `<div class="ent minis pdf" ${tip}><div class="mh">${esc(label)} <span class="glinks">${gs.map(g => link('c', g, 'กลุ่ม '+g)).join(' ')}</span></div>${miniList(items, {t:1, lv:0, oneLine: items.length > 4})}</div>`;
-    return `<div class="ent act pdf" ${tip}><span>${esc(label)}</span></div>`;
+    // ตารางเรียนนักเรียนแสดงแค่ป้ายวิชาเลือก + ลิงก์ไปดูรายวิชาในตารางกลุ่ม
+    return `<div class="ent act pdf" ${tip}><span>${esc(label)}</span>${gs.length ? `<span class="glinks">${gs.map(g => link('c', g, 'ดูรายวิชา '+g)).join(' ')}</span>` : ''}</div>`;
   }
   const e = mode === 'c' ? {s:x.s, t:tById.has(x.t) ? x.t : undefined, r:x.r} : {s:x.s, c:x.c, r:x.r};
   return entHTML(e, mode === 'c' ? {t:1, r:1} : {c:1, r:1}, false).replace('<div class="ent', `<div ${tip} class="ent pdf`);
@@ -529,10 +527,8 @@ function sheetSpec(){
   if (S.v==='c'){ const c=S.c, g=byClass.get(c), grp=!/^\d\/\d+$/.test(c);
     return {lunch: lunchFor(c), kicker:'ตารางเรียน', title: grp ? c : 'ม.'+c, sub: grp ? 'กลุ่มเรียน (รวมหลายห้อง)' : 'ตารางเรียนนักเรียน', term, file:`ตารางเรียน-${grp?c:'ม.'+c.replace('/','-')}`,
       cell:(d,p)=>{ const l=g[d][p]; if(!l.length){ const x=!grp&&pdfC(c,d,p);
-          if (x && x.a) { const label=x.a.replace(/^เลือก\s*/,'วิชาเลือก ').replace('พัฒนา ศักยภาพ','พัฒนาศักยภาพ'), lv=levelOf(c);
-            const gs=/^เลือก/.test(x.a)?groupsAt(c,d,p,x.a):[];
-            const its=mergeSame(gs.flatMap(g=>byClass.get(g)[d][p].filter(e=>!/^เสรี/.test(g)||!/^\d$/.test(e.r||'')||+e.r===lv)));
-            return its.length ? [{list:label, rows:its.map(e=>({s:e.s, t:(e.ts||[]).map(shortT).join(', ')}))}] : [{act:label}]; }
+          if (x && x.a) { const label=x.a.replace(/^เลือก\s*/,'วิชาเลือก ').replace('พัฒนา ศักยภาพ','พัฒนาศักยภาพ');
+            return [{act:label}]; }
           if (x) return [{s:x.s, det:[tById.has(x.t)?shortT(x.t):'', x.r&&isRoom(x.r)?roomLabel(x.r):''].filter(Boolean).join(' · ')}];
           const w=!grp&&wideFor(c,d,p); return w?[{act:w.a}]:[]; }
         if (grp && mergeSame(l).length > 2) return [{list:'', rows:mergeSame(l).map(e=>({s:e.s, t:[/^เสรี/.test(c)&&e.rs.length?'ม.'+e.rs.join(','):'', (e.ts||[]).map(shortT).join(', ')].filter(Boolean).join(' · ')}))}];
