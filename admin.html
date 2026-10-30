@@ -59,6 +59,22 @@ td input,td select{width:100%}
 .hint{font-size:13px;color:var(--muted)}
 .chip{display:inline-block;font-size:12px;padding:1px 8px;border-radius:999px;background:var(--sunk);color:var(--muted)}
 .subj-filter{max-width:280px}
+.eg{border-collapse:collapse;width:100%;table-layout:fixed;min-width:860px}
+.eg th,.eg td{border:1px solid var(--line);padding:3px;text-align:center;font-size:12px;vertical-align:middle}
+.eg th{background:var(--sunk)}
+.eg th.d{width:64px}
+.eg td button{all:unset;box-sizing:border-box;display:block;width:100%;min-height:52px;padding:4px;border-radius:5px;cursor:pointer;line-height:1.3;font-size:12px;word-break:break-word}
+.eg td button:hover{background:var(--sunk)}
+.eg td button:focus-visible{outline:2px solid var(--accent)}
+.eg td button.has{background:color-mix(in oklab,var(--accent) 12%,var(--surface))}
+.eg td button.act{background:var(--sunk);color:var(--muted)}
+.eg td button.sel{outline:2px solid var(--accent);outline-offset:-2px}
+.eg td button.chg{box-shadow:inset 0 0 0 2px var(--warn)}
+.eg td button b{font-family:var(--font-d);font-weight:600}
+.edf{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;align-items:end;background:var(--sunk);padding:12px;border-radius:6px}
+.edf label{display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--muted)}
+.edf .full{grid-column:1/-1}
+.loglist{margin:0;padding-left:20px;font-size:13px}
 </style>
 <link rel="icon" type="image/png" href="favicon.png">
 <script src="config.js"></script>
@@ -88,6 +104,7 @@ td input,td select{width:100%}
       <button role="tab" data-tab="ex" id="tab-ex">ตารางสอบ</button>
       <button role="tab" data-tab="pe" id="tab-pe">เวลาคาบ</button>
       <button role="tab" data-tab="su" id="tab-su">ชื่อวิชา</button>
+      <button role="tab" data-tab="ed" id="tab-ed">แก้ไขคาบ</button>
       <a class="btn ghost" href="index.html" target="_blank" rel="noopener" style="text-decoration:none">ดูหน้าตาราง ↗</a>
       <button class="btn ghost" id="logout" type="button">ออกจากระบบ</button>
     </nav>
@@ -135,6 +152,24 @@ td input,td select{width:100%}
     </section>
 
     <!-- ชื่อวิชา -->
+    <!-- แก้ไขคาบ -->
+    <section data-panel="ed" hidden>
+      <div class="card">
+        <div><h2>แก้ไขคาบรายช่อง</h2>
+          <div class="hint">เลือกครู แล้วกดช่องที่ต้องการ แก้ ย้าย หรือลบได้ การแก้ไขจะยังไม่ขึ้นเว็บจนกว่าจะกด "บันทึกขึ้นระบบ" (ถ้าอัปโหลดไฟล์ T_ONE ใหม่ภายหลัง การแก้ไขในหน้านี้จะถูกแทนที่ด้วยไฟล์ใหม่)</div></div>
+        <div class="row">
+          <label for="ed-q" class="muted" style="font-size:13px">ครู</label>
+          <input id="ed-q" list="ed-tlist" placeholder="พิมพ์ชื่อหรือรหัสครู" style="min-width:280px">
+          <datalist id="ed-tlist"></datalist>
+        </div>
+        <div id="ed-grid"></div>
+        <div id="ed-form"></div>
+        <div id="ed-log"></div>
+        <div class="row"><button class="btn primary" id="ed-save" type="button" disabled>บันทึกขึ้นระบบ</button>
+          <button class="btn ghost" id="ed-undo" type="button" disabled>ยกเลิกการแก้ไขทั้งหมด</button><span id="ed-msg"></span></div>
+      </div>
+    </section>
+
     <section data-panel="su" hidden>
       <div class="card">
         <div><h2>ชื่อวิชา</h2><div class="hint">รายการรหัสวิชาที่พบในตารางสอนปัจจุบัน ใส่ชื่อวิชาเพื่อให้แสดงในตาราง หรือนำเข้าจาก Excel (คอลัมน์ A รหัสวิชา, B ชื่อวิชา)</div></div>
@@ -178,7 +213,7 @@ async function loadCurrent(){
   EXAMS = (j.exams || []).map(x => ({...x}));
   PERIODS = Array.from({length:10}, (_,i) => { const x = (j.periods||[]).find(q => q.p === i+1) || {}; return {p:i+1, start:x.start||'', end:x.end||''}; });
   SUBJ = {...(j.subjects || {})};
-  renderStatus(); renderExams(); renderPeriods(); renderSubjects();
+  renderStatus(); renderExams(); renderPeriods(); renderSubjects(); edInit();
 }
 function renderStatus(){
   const m = CUR.meta || {};
@@ -346,6 +381,119 @@ $('su-file').addEventListener('change', async () => {
   } catch (e) { msg('su-msg', 'bad', 'อ่านไฟล์ไม่ได้: ' + e.message); }
 });
 $('su-save').addEventListener('click', () => withBtn('su-save', 'su-msg', async () => { await api({action:'saveSubjects', subjects:SUBJ}); await loadCurrent(); }));
+
+/* ---------- แก้ไขคาบ ---------- */
+const DAYN = ['จันทร์','อังคาร','พุธ','พฤหัสบดี','ศุกร์'];
+let ED = null;          // สำเนาข้อมูลครูที่กำลังแก้
+let EDLOG = [];         // รายการที่แก้
+let edT = null, edSel = null, edForce = false;
+const cellTxt = e => !e ? '' : e.a ? e.a : [e.s, e.c, e.r].filter(Boolean).join(' ');
+function edInit(){
+  ED = JSON.parse(JSON.stringify((CUR && CUR.teachers) || []));
+  EDLOG = []; edSel = null; edForce = false;
+  $('ed-tlist').innerHTML = ED.map(t => `<option value="${esc(t.id+' '+t.n)}">`).join('');
+  if (edT && !ED.find(t => t.id === edT)) edT = null;
+  edRender();
+}
+function edTeacher(){ return ED.find(t => t.id === edT); }
+function edAt(t, d, p){ return t.x.find(e => e.d === d && e.p === p); }
+$('ed-q').addEventListener('change', () => {
+  const id = ($('ed-q').value.match(/^(\S+)/) || [])[1];
+  if (id !== edT && ED.find(t => t.id === id)) { edT = id; edSel = null; edRender(); }
+});
+function edRender(){
+  const t = edTeacher();
+  $('ed-save').disabled = !EDLOG.length; $('ed-undo').disabled = !EDLOG.length;
+  $('ed-log').innerHTML = EDLOG.length ? `<div class="msg warn"><b>รอบันทึก ${EDLOG.length} รายการ</b><ol class="loglist">${EDLOG.map(l => `<li>${esc(l)}</li>`).join('')}</ol></div>` : '';
+  if (!t) { $('ed-grid').innerHTML = '<div class="muted" style="padding:16px 0">เลือกครูก่อน แล้วตารางสอนของครูจะขึ้นตรงนี้</div>'; $('ed-form').innerHTML = ''; return; }
+  const changed = new Set(t._chg || []);
+  let h = `<div class="muted" style="margin-bottom:6px"><b style="color:var(--fg)">${esc(t.n)}</b> · รหัส ${esc(t.id)} · ${t.x.length} คาบ</div><div class="tbl-wrap"><table class="eg"><thead><tr><th class="d"></th>`;
+  for (let p = 0; p < 10; p++) h += `<th>คาบ ${p+1}</th>`;
+  h += '</tr></thead><tbody>';
+  for (let d = 0; d < 5; d++) {
+    h += `<tr><th class="d">${DAYN[d]}</th>`;
+    for (let p = 0; p < 10; p++) {
+      const e = edAt(t, d, p), k = d+'-'+p;
+      const cls = [e ? (e.a ? 'act' : 'has') : '', edSel === k ? 'sel' : '', changed.has(k) ? 'chg' : ''].join(' ');
+      const inner = !e ? '<span class="muted">+</span>' : e.a ? esc(e.a) : `<b>${esc(e.s)}</b><br>${esc(e.c || '')}${e.r ? '<br>' + esc(e.r) : ''}`;
+      h += `<td><button type="button" class="${cls}" data-k="${k}" aria-label="${DAYN[d]} คาบ ${p+1}">${inner}</button></td>`;
+    }
+    h += '</tr>';
+  }
+  $('ed-grid').innerHTML = h + '</tbody></table></div>';
+  $('ed-grid').querySelectorAll('[data-k]').forEach(b => b.addEventListener('click', () => { edSel = b.dataset.k; edForce = false; edRender(); }));
+  edForm();
+}
+function edConflicts(t, d, p, ent){
+  const out = [];
+  const own = edAt(t, d, p);
+  if (own) out.push(`ครูมีคาบอยู่แล้วในช่องนี้ (${cellTxt(own)}) จะถูกแทนที่`);
+  if (ent && ent.c) for (const o of ED) { if (o.id === t.id) continue;
+    const e = edAt(o, d, p); if (e && e.c === ent.c && e.s !== ent.s) out.push(`ห้อง ${ent.c} มีวิชา ${e.s} ของ${o.n} อยู่แล้วในคาบนี้`); }
+  if (ent && ent.r && !/^\d$/.test(ent.r)) for (const o of ED) { if (o.id === t.id) continue;
+    const e = edAt(o, d, p); if (e && e.r === ent.r && e.s !== ent.s) out.push(`ห้อง ${ent.r} ถูกใช้โดย${o.n} (${e.s}) ในคาบนี้`); }
+  return out;
+}
+function edForm(){
+  const t = edTeacher(); if (!t || !edSel) { $('ed-form').innerHTML = ''; return; }
+  const [d, p] = edSel.split('-').map(Number), e = edAt(t, d, p);
+  const isAct = e && e.a;
+  $('ed-form').innerHTML = `<div class="edf">
+    <div class="full"><b>${DAYN[d]} คาบ ${p+1}</b> <span class="muted">${e ? 'ตอนนี้: ' + esc(cellTxt(e)) : 'ช่องว่าง'}</span></div>
+    <label>ประเภท<select id="ef-type"><option value="s" ${!isAct?'selected':''}>วิชา</option><option value="a" ${isAct?'selected':''}>กิจกรรม/งาน</option></select></label>
+    <label class="f-s">รหัสวิชา<input id="ef-s" value="${esc(e && e.s || '')}" placeholder="ส21102"></label>
+    <label class="f-s">ชั้น/กลุ่ม<input id="ef-c" value="${esc(e && e.c || '')}" placeholder="1/1 หรือ 4วิทย์"></label>
+    <label class="f-s">ห้องเรียน<input id="ef-r" value="${esc(e && e.r || '')}" placeholder="532 หรือ com1"></label>
+    <label class="f-a">ชื่อกิจกรรม<input id="ef-a" value="${esc(e && e.a || '')}" placeholder="ประชุม วิชาการ"></label>
+    <label>ย้ายไปวัน<select id="ef-d">${DAYN.map((n,i) => `<option value="${i}" ${i===d?'selected':''}>${n}</option>`).join('')}</select></label>
+    <label>ย้ายไปคาบ<select id="ef-p">${Array.from({length:10},(_,i) => `<option value="${i}" ${i===p?'selected':''}>คาบ ${i+1}</option>`).join('')}</select></label>
+    <div class="full" id="ef-warn"></div>
+    <div class="full row">
+      <button class="btn primary" type="button" id="ef-apply">ใช้การแก้ไข</button>
+      ${e ? '<button class="btn danger" type="button" id="ef-del">ลบช่องนี้</button>' : ''}
+      <button class="btn ghost" type="button" id="ef-cancel">ปิด</button>
+    </div></div>`;
+  const syncType = () => { const a = $('ef-type').value === 'a';
+    document.querySelectorAll('#ed-form .f-s').forEach(x => x.hidden = a); document.querySelectorAll('#ed-form .f-a').forEach(x => x.hidden = !a); };
+  $('ef-type').addEventListener('change', syncType); syncType();
+  const read = () => $('ef-type').value === 'a'
+    ? (($('ef-a').value.trim()) ? {a: $('ef-a').value.trim()} : null)
+    : (($('ef-s').value.trim()) ? Object.fromEntries(Object.entries({s: $('ef-s').value.trim(), c: $('ef-c').value.trim(), r: $('ef-r').value.trim()}).filter(([k,v]) => v)) : null);
+  const showWarn = () => {
+    const ent = read(), d2 = +$('ef-d').value, p2 = +$('ef-p').value;
+    const moving = d2 !== d || p2 !== p;
+    const w = moving || !e ? edConflicts(t, d2, p2, ent) : edConflicts(t, d2, p2, ent).filter(x => !x.startsWith('ครูมีคาบ'));
+    $('ef-warn').innerHTML = w.length ? `<div class="msg warn">${w.map(esc).join('<br>')}${edForce ? '<br><b>กด "ใช้การแก้ไข" อีกครั้งเพื่อยืนยัน</b>' : ''}</div>` : '';
+    return w;
+  };
+  ['ef-d','ef-p','ef-s','ef-c','ef-r'].forEach(id => $(id).addEventListener('input', () => { edForce = false; showWarn(); }));
+  showWarn();
+  $('ef-cancel').addEventListener('click', () => { edSel = null; edRender(); });
+  if (e) $('ef-del').addEventListener('click', () => {
+    t.x = t.x.filter(x => x !== e); edMark(t, d, p);
+    EDLOG.push(`${t.id} ${t.n}: ลบ ${DAYN[d]} คาบ ${p+1} (${cellTxt(e)})`); edSel = null; edRender();
+  });
+  $('ef-apply').addEventListener('click', () => {
+    const ent = read(); if (!ent) { $('ef-warn').innerHTML = '<div class="msg bad">กรอกรหัสวิชาหรือชื่อกิจกรรมก่อน</div>'; return; }
+    const d2 = +$('ef-d').value, p2 = +$('ef-p').value;
+    const w = showWarn();
+    if (w.length && !edForce) { edForce = true; showWarn(); return; }
+    if (e) t.x = t.x.filter(x => x !== e);
+    t.x = t.x.filter(x => !(x.d === d2 && x.p === p2));
+    t.x.push({d: d2, p: p2, ...ent}); t.x.sort((a,b) => a.d - b.d || a.p - b.p);
+    t.t = t.x.length; edMark(t, d, p); edMark(t, d2, p2);
+    const where = (d2 !== d || p2 !== p) ? `ย้าย ${DAYN[d]} คาบ ${p+1} → ${DAYN[d2]} คาบ ${p2+1}` : `แก้ ${DAYN[d]} คาบ ${p+1}`;
+    EDLOG.push(`${t.id} ${t.n}: ${where} = ${cellTxt(ent)}${e && (d2!==d||p2!==p) ? '' : e ? ' (เดิม ' + cellTxt(e) + ')' : ''}`);
+    edSel = d2 + '-' + p2; edForce = false; edRender();
+  });
+}
+function edMark(t, d, p){ (t._chg = t._chg || []).push(d + '-' + p); t.t = t.x.length; }
+$('ed-undo').addEventListener('click', () => { edInit(); msg('ed-msg', 'warn', 'ยกเลิกการแก้ไขแล้ว'); });
+$('ed-save').addEventListener('click', () => withBtn('ed-save', 'ed-msg', async () => {
+  const teachers = ED.map(({_chg, ...t}) => t);
+  await api({action:'saveTimetable', data:{meta: CUR.meta, teachers}});
+  await loadCurrent();
+}));
 
 /* ---------- start ---------- */
 if (!API || /ใส่ลิงก์/.test(API)) { $('status').textContent = 'ยังไม่ได้ตั้งค่าลิงก์ Apps Script ในไฟล์ config.js'; }
