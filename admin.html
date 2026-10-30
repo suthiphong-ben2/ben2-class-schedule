@@ -10,19 +10,21 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Sans+Thai:wght@400;500;600&display=swap">
 <style>
 :root{
-  --bg:#F3F6F5; --surface:#FFFFFF; --sunk:#E9EEEC; --line:#D5DDDA; --fg:#14211E; --muted:#5A6965; --accent:#0E6B5A; --accent-fg:#FFFFFF;
+  --bg:#F2F5FB; --surface:#FFFFFF; --sunk:#E7ECF6; --line:#D2DAEA; --fg:#111A33; --muted:#56617D; --accent:#1D3F9A; --accent-fg:#FFFFFF; --brand:#16337F; --brand-2:#1D3F9A; --brand-fg:#FFFFFF; --gold:#E2B33C; --gold-ink:#7A5A00;
   --ok:#15803D; --warn:#B45309; --bad:#B91C1C;
   --font-d:"Chakra Petch","IBM Plex Sans Thai",system-ui,sans-serif;
   --font-b:"IBM Plex Sans Thai","Noto Sans Thai",system-ui,sans-serif; --r:8px;
 }
 @media (prefers-color-scheme:dark){:root{
-  --bg:#0F1614; --surface:#162120; --sunk:#1C2927; --line:#2A3835; --fg:#E4EDEA; --muted:#93A39E; --accent:#4CC3A6; --accent-fg:#06201A;
+  --bg:#0C1222; --surface:#131C33; --sunk:#1A2440; --line:#2A3658; --fg:#E7ECF7; --muted:#9AA6C4; --accent:#8DB0FF; --accent-fg:#0C1636; --brand:#0F1F4D; --brand-2:#162B66; --brand-fg:#FFFFFF; --gold:#F2C350; --gold-ink:#F2C350;
   --ok:#4ADE80; --warn:#FBBF24; --bad:#F87171; color-scheme:dark}}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--font-b);font-size:15px;line-height:1.5}
 [hidden]{display:none!important}
 .wrap{max-width:1100px;margin:0 auto;padding:0 max(16px,env(safe-area-inset-left,0px))}
-header{background:var(--surface);border-bottom:1px solid var(--line)}
+header{background:linear-gradient(100deg,var(--brand),var(--brand-2));color:var(--brand-fg);border-bottom:4px solid var(--gold)}
+header .status{color:color-mix(in oklab,var(--brand-fg) 78%,transparent)}
+header .status b{color:var(--gold)}
 header .wrap{display:flex;flex-wrap:wrap;gap:6px 16px;align-items:baseline;justify-content:space-between;padding-block:14px}
 h1{font-family:var(--font-d);font-size:22px;margin:0}
 h2{font-family:var(--font-d);font-size:19px;margin:0 0 4px}
