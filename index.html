@@ -112,6 +112,9 @@ html{-webkit-text-size-adjust:100%}body{margin:0}[hidden]{display:none!important
 .ent .det{color:var(--muted);font-size:11.5px}
 .ent .det a{color:var(--muted)}
 .ent .sn.one{-webkit-line-clamp:1}
+.ent.act.pdf{border:1.5px dashed var(--line);background:var(--surface);flex-direction:column;gap:3px}
+.ent .glinks{display:flex;flex-wrap:wrap;gap:2px 6px;justify-content:center;font-size:11px}
+.ent.pdf:not(.act){outline:1.5px dashed color-mix(in oklab,var(--h) 60%,var(--surface));outline-offset:-1.5px}
 .ent .pair{font-family:var(--font-b);font-weight:500;font-size:10.5px;color:var(--muted);margin-left:2px}
 .loading{padding:60px 10px;text-align:center;color:var(--muted)}
 .errbox{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:20px;max-width:60ch}
@@ -176,7 +179,9 @@ async function loadData(){
 if (window.parent !== window && window.ResizeObserver) {
   new ResizeObserver(() => parent.postMessage({ben2tt: true, height: document.documentElement.scrollHeight}, '*')).observe(document.body);
 }
-loadData().then(start).catch(err => {
+// ข้อมูลเติมช่องว่างจากตาราง PDF ของฝ่ายวิชาการ (ไม่บังคับ ถ้าโหลดไม่ได้ก็แสดงตาม T_ONE อย่างเดียว)
+const loadPdf = fetch('pdf-fill.json').then(r => r.ok ? r.json() : null).catch(() => null);
+Promise.all([loadData(), loadPdf]).then(([d, pdf]) => { d.pdf = pdf; start(d); }).catch(err => {
   mainEl.innerHTML = `<div class="errbox"><b>โหลดตารางไม่สำเร็จ</b><br>ตรวจสอบการเชื่อมต่ออินเทอร์เน็ตแล้วลองรีเฟรชหน้าอีกครั้ง<br><small>${String(err.message||err).replace(/</g,'&lt;')}</small></div>`;
 });
 
@@ -299,6 +304,26 @@ function tableHTML(cellFn, opt){
   return h + '</tbody></table></div>';
 }
 // รวมวิชาเดียวกัน (รหัสเดียวกัน) ที่อยู่คาบเดียวกันเป็นช่องเดียว เช่น สอนคู่ 2 คน
+// ---- เติมช่องว่างจากตาราง PDF (ใช้เฉพาะช่องที่ T_ONE ว่าง และภาคเรียนตรงกัน)
+const PDF = (DATA.pdf && DATA.pdf.term === DATA.meta.term && DATA.pdf.year === DATA.meta.year) ? DATA.pdf : null;
+const pdfC = (c,d,p) => PDF && PDF.classes[c] && PDF.classes[c][d+'-'+p];
+const pdfT = (id,d,p) => PDF && PDF.teachers[id] && PDF.teachers[id][d+'-'+p];
+function groupsAt(c,d,p,label){
+  const lv = levelOf(c);
+  const kind = /วิทย์/.test(label) ? 'วิทย์' : /เสรี/.test(label) ? 'เสรี' : 'ศิลป์';
+  return classes.filter(g => !/^\d\/\d+$/.test(g) && byClass.get(g)[d][p].length &&
+    (kind === 'เสรี' ? (g === 'เสรี' || g === 'เสรี'+lv) : (levelOf(g) === lv && g.includes(kind))));
+}
+function pdfHTML(x, mode, c, d, p){
+  const tip = 'title="ช่องนี้ในไฟล์ T_ONE ว่าง ข้อมูลมาจากตาราง PDF ของฝ่ายวิชาการ"';
+  if (x.a){
+    const gs = /^เลือก/.test(x.a) ? groupsAt(c,d,p,x.a) : [];
+    const label = x.a.replace(/^เลือก\s*/, 'วิชาเลือก ').replace('พัฒนา ศักยภาพ','พัฒนาศักยภาพ');
+    return `<div class="ent act pdf" ${tip}><span>${esc(label)}</span>${gs.length ? `<span class="glinks">${gs.map(g => link('c', g, 'ดูกลุ่ม '+g)).join(' ')}</span>` : ''}</div>`;
+  }
+  const e = mode === 'c' ? {s:x.s, t:tById.has(x.t) ? x.t : undefined, r:x.r} : {s:x.s, c:x.c, r:x.r};
+  return entHTML(e, mode === 'c' ? {t:1, r:1} : {c:1, r:1}, false).replace('<div class="ent', `<div ${tip} class="ent pdf`);
+}
 function mergeSame(list){
   const out = [], by = new Map();
   for (const e of list){
@@ -367,7 +392,7 @@ function viewTeacher(){
   return `<div class="title-row"><div><div class="sub">${esc(t.g)} · รหัส ${esc(t.id)}</div><h2>${esc(t.n)}</h2></div>
     <div class="stats"><div class="stat"><b>${t.t}</b><span>คาบ/สัปดาห์</span></div><div class="stat"><b>${lessons.length}</b><span>คาบสอน</span></div><div class="stat"><b>${subj.size}</b><span>รายวิชา</span></div><div class="stat"><b>${cls.size}</b><span>ห้อง/กลุ่มเรียน</span></div><div class="stat"><b>${perDay.join(' · ')}</b><span>คาบสอน จ.–ศ.</span></div></div></div>
     ${exportBar()}
-    ${tableHTML((d,p) => stack(b[d][p], {c:1, r:1}))}
+    ${tableHTML((d,p) => b[d][p].length ? stack(b[d][p], {c:1, r:1}) : (pdfT(t.id,d,p) ? pdfHTML(pdfT(t.id,d,p), 't') : ''))}
     ${legend()}`;
 }
 function panelClasses(){
@@ -385,6 +410,8 @@ function viewClass(){
   const html = tableHTML((d,p) => {
     const l = g[d][p];
     if (l.length) return stack(l, {t:1, r:1});
+    const x = !isGroup && pdfC(c,d,p);
+    if (x) return pdfHTML(x, 'c', c, d, p);
     const w = !isGroup && wideFor(c,d,p);
     return w ? `<div class="ent act inferred">${esc(w.a)}</div>` : '';
   }, {lunch: lunchFor(c)});
@@ -392,7 +419,7 @@ function viewClass(){
     <div class="stats"><div class="stat"><b>${filled}</b><span>คาบเรียน/สัปดาห์</span></div><div class="stat"><b>${subj.size}</b><span>รายวิชา</span></div><div class="stat"><b>${teachers.size}</b><span>ครูผู้สอน</span></div></div></div>
     ${exportBar()}
     ${html}${legend()}
-    <p class="note">ตารางนี้กลับข้างมาจากตารางสอนครู ช่องลายทแยงเป็นกิจกรรมที่ครูส่วนใหญ่มีตรงกัน (ชุมนุม, ลูกเสือ–เนตรนารีของ ม.ต้น) ซึ่งระบบเติมให้เอง ${isGroup ? '' : 'วิชาที่สอนเป็นกลุ่มสายวิทย์/ศิลป์หรือวิชาเสรีจะอยู่ในรายการ “กลุ่มเรียนอื่น” เพราะไฟล์ไม่ได้ระบุว่ากลุ่มนั้นมีห้องไหนบ้าง'}</p>`;
+    <p class="note">ตารางนี้กลับข้างมาจากตารางสอนครู ช่องลายทแยงเป็นกิจกรรมที่ครูส่วนใหญ่มีตรงกัน (ชุมนุม, ลูกเสือ–เนตรนารีของ ม.ต้น) ซึ่งระบบเติมให้เอง${PDF && !isGroup ? ' ช่องกรอบเส้นประคือช่องที่ไฟล์ T_ONE ว่าง ระบบเติมตามตาราง PDF ของฝ่ายวิชาการ (กด “ดูกลุ่ม” เพื่อดูวิชาเลือกในคาบนั้น)' : ''} ${isGroup ? '' : 'วิชาที่สอนเป็นกลุ่มสายวิทย์/ศิลป์หรือวิชาเสรีจะอยู่ในรายการ “กลุ่มเรียนอื่น” เพราะไฟล์ไม่ได้ระบุว่ากลุ่มนั้นมีห้องไหนบ้าง'}</p>`;
 }
 function panelRooms(){
   const items=[{grp:'ห้องเรียน'}]; let other=false;
@@ -471,10 +498,13 @@ function sheetSpec(){
   const term = `ภาคเรียนที่ ${DATA.meta.term}/${DATA.meta.year}`;
   if (S.v==='t'){ const t=tById.get(S.t), b=busy.get(t.id);
     return {kicker:'ตารางสอน', title:t.n, sub:`${t.g} · รหัส ${t.id} · ${t.t} คาบ/สัปดาห์`, term, file:`ตารางสอน-${shortName(t.n)}`,
-      cell:(d,p)=>mergeX(b[d][p], e=>[e.cs.map(clsTxt).join(', '), e.rs.filter(isRoom).map(roomLabel).join(', ')].filter(Boolean).join(' · '))}; }
+      cell:(d,p)=>{ if (!b[d][p].length){ const x=pdfT(t.id,d,p); return x ? [x.a ? {act:x.a} : {s:x.s, det:[x.c&&clsTxt(x.c), x.r&&isRoom(x.r)?roomLabel(x.r):''].filter(Boolean).join(' · ')}] : []; }
+        return mergeX(b[d][p], e=>[e.cs.map(clsTxt).join(', '), e.rs.filter(isRoom).map(roomLabel).join(', ')].filter(Boolean).join(' · ')); }}; }
   if (S.v==='c'){ const c=S.c, g=byClass.get(c), grp=!/^\d\/\d+$/.test(c);
     return {lunch: lunchFor(c), kicker:'ตารางเรียน', title: grp ? c : 'ม.'+c, sub: grp ? 'กลุ่มเรียน (รวมหลายห้อง)' : 'ตารางเรียนนักเรียน', term, file:`ตารางเรียน-${grp?c:'ม.'+c.replace('/','-')}`,
-      cell:(d,p)=>{ const l=g[d][p]; if(!l.length){ const w=!grp&&wideFor(c,d,p); return w?[{act:w.a}]:[]; }
+      cell:(d,p)=>{ const l=g[d][p]; if(!l.length){ const x=!grp&&pdfC(c,d,p);
+          if (x) return [x.a ? {act:x.a.replace(/^เลือก\s*/,'วิชาเลือก ').replace('พัฒนา ศักยภาพ','พัฒนาศักยภาพ')} : {s:x.s, det:[tById.has(x.t)?shortT(x.t):'', x.r&&isRoom(x.r)?roomLabel(x.r):''].filter(Boolean).join(' · ')}];
+          const w=!grp&&wideFor(c,d,p); return w?[{act:w.a}]:[]; }
         return mergeX(l, e=>[e.ts.map(shortT).join(', '), e.rs.filter(isRoom).map(roomLabel).join(', ')].filter(Boolean).join(' · ')); }}; }
   const r=S.r, g=byRoom.get(r);
   return {kicker:'ตารางการใช้ห้อง', title:roomLabel(r), sub:'การใช้ห้องตลอดสัปดาห์', term, file:`ตารางห้อง-${r}`,
