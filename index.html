@@ -189,7 +189,7 @@ const SUBJ = DATA.subjects || {};
 const PT = Array.from({length:10}, (_,i) => { const x=(DATA.periods||[]).find(q=>q.p===i+1); return x && x.start ? x.start + (x.end ? '–' + x.end : '') : ''; });
 const DAYS = ['จันทร์','อังคาร','พุธ','พฤหัสบดี','ศุกร์'];
 const DAYS_S = ['จ.','อ.','พ.','พฤ.','ศ.'];
-const NP = 10;
+const NP = 9;   // โรงเรียนเรียนถึงคาบ 9 ไม่มีคาบ 10
 const CAT = {'ท':['th','ภาษาไทย'],'ค':['ma','คณิตศาสตร์'],'ว':['sc','วิทยาศาสตร์และเทคโนโลยี'],'ส':['so','สังคมศึกษา'],'พ':['pe','สุขศึกษาและพลศึกษา'],'ศ':['ar','ศิลปะ'],'ง':['oc','การงานอาชีพ'],'อ':['en','ภาษาอังกฤษ'],'จ':['fl','ภาษาจีน/ญี่ปุ่น'],'ญ':['fl','ภาษาจีน/ญี่ปุ่น'],'I':['is','IS'],'ก':['ac','กิจกรรม/แนะแนว'],'เ':['ex','เสริม/CEFR'],'C':['ex','เสริม/CEFR']};
 const hueOf = s => 'var(--h-' + ((CAT[s[0]]||['is'])[0]) + ')';
 const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -208,6 +208,7 @@ const tById = new Map(T.map(t => [t.id, t]));
 const byClass = new Map(), byRoom = new Map(), busy = new Map();
 const grid = () => Array.from({length:5}, () => Array.from({length:NP}, () => []));
 const actCount = new Map();
+T.forEach(t => { t.x = t.x.filter(e => e.p < NP); });   // ตัดข้อมูลคาบ 10 ที่หลุดมาในไฟล์ T_ONE
 for (const t of T) {
   const b = grid(); busy.set(t.id, b);
   for (const e of t.x) {
@@ -397,13 +398,13 @@ function panelRooms(){
   const items=[{grp:'ห้องเรียน'}]; let other=false;
   for (const r of rooms){ if (!/^\d+$/.test(r) && !other){ other=true; items.push({grp:'ห้องพิเศษ / ห้องครูต่างชาติ'}); }
     const n = byRoom.get(r).flat().filter(x=>x.length).length;
-    items.push({id:r, go:'r:'+r, label:roomLabel(r), meta:n+'/50 คาบ'}); }
+    items.push({id:r, go:'r:'+r, label:roomLabel(r), meta:n+'/'+(5*NP)+' คาบ'}); }
   return `<label class="lbl">เลือกห้อง</label><div class="list">${listHTML(items, S.r)}</div>`;
 }
 function viewRoom(){
   const r=S.r, g=byRoom.get(r); const used=g.flat().filter(x=>x.length).length;
   return `<div class="title-row"><div><div class="sub">การใช้ห้อง</div><h2>${esc(roomLabel(r))}</h2></div>
-    <div class="stats"><div class="stat"><b>${used}</b><span>คาบที่มีการใช้</span></div><div class="stat"><b>${50-used}</b><span>คาบว่าง</span></div><div class="stat"><b>${Math.round(used/50*100)}%</b><span>อัตราการใช้</span></div></div></div>
+    <div class="stats"><div class="stat"><b>${used}</b><span>คาบที่มีการใช้</span></div><div class="stat"><b>${5*NP-used}</b><span>คาบว่าง</span></div><div class="stat"><b>${Math.round(used/(5*NP)*100)}%</b><span>อัตราการใช้</span></div></div></div>
     ${exportBar()}
     ${tableHTML((d,p) => stack(g[d][p], {c:1, t:1}))}${legend()}`;
 }

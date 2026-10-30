@@ -142,7 +142,7 @@ td input,td select{width:100%}
     <!-- เวลาคาบ -->
     <section data-panel="pe" hidden>
       <div class="card">
-        <div><h2>เวลาคาบเรียน</h2><div class="hint">แสดงใต้หัวคอลัมน์ "คาบ 1–10" ในหน้าตาราง เว้นว่างได้</div></div>
+        <div><h2>เวลาคาบเรียน</h2><div class="hint">แสดงใต้หัวคอลัมน์ "คาบ 1–9" ในหน้าตาราง เว้นว่างได้</div></div>
         <div class="tbl-wrap" style="max-width:460px"><table>
           <thead><tr><th>คาบ</th><th>เริ่ม</th><th>จบ</th></tr></thead>
           <tbody id="pe-body"></tbody>
@@ -211,7 +211,7 @@ async function loadCurrent(){
   if (!j.ok) throw new Error(j.error || 'โหลดข้อมูลไม่สำเร็จ');
   CUR = j;
   EXAMS = (j.exams || []).map(x => ({...x}));
-  PERIODS = Array.from({length:10}, (_,i) => { const x = (j.periods||[]).find(q => q.p === i+1) || {}; return {p:i+1, start:x.start||'', end:x.end||''}; });
+  PERIODS = Array.from({length:9}, (_,i) => { const x = (j.periods||[]).find(q => q.p === i+1) || {}; return {p:i+1, start:x.start||'', end:x.end||''}; });
   SUBJ = {...(j.subjects || {})};
   renderStatus(); renderExams(); renderPeriods(); renderSubjects(); edInit();
 }
@@ -408,11 +408,11 @@ function edRender(){
   if (!t) { $('ed-grid').innerHTML = '<div class="muted" style="padding:16px 0">เลือกครูก่อน แล้วตารางสอนของครูจะขึ้นตรงนี้</div>'; $('ed-form').innerHTML = ''; return; }
   const changed = new Set(t._chg || []);
   let h = `<div class="muted" style="margin-bottom:6px"><b style="color:var(--fg)">${esc(t.n)}</b> · รหัส ${esc(t.id)} · ${t.x.length} คาบ</div><div class="tbl-wrap"><table class="eg"><thead><tr><th class="d"></th>`;
-  for (let p = 0; p < 10; p++) h += `<th>คาบ ${p+1}</th>`;
+  for (let p = 0; p < 9; p++) h += `<th>คาบ ${p+1}</th>`;
   h += '</tr></thead><tbody>';
   for (let d = 0; d < 5; d++) {
     h += `<tr><th class="d">${DAYN[d]}</th>`;
-    for (let p = 0; p < 10; p++) {
+    for (let p = 0; p < 9; p++) {
       const e = edAt(t, d, p), k = d+'-'+p;
       const cls = [e ? (e.a ? 'act' : 'has') : '', edSel === k ? 'sel' : '', changed.has(k) ? 'chg' : ''].join(' ');
       const inner = !e ? '<span class="muted">+</span>' : e.a ? esc(e.a) : `<b>${esc(e.s)}</b><br>${esc(e.c || '')}${e.r ? '<br>' + esc(e.r) : ''}`;
@@ -446,7 +446,7 @@ function edForm(){
     <label class="f-s">ห้องเรียน<input id="ef-r" value="${esc(e && e.r || '')}" placeholder="532 หรือ com1"></label>
     <label class="f-a">ชื่อกิจกรรม<input id="ef-a" value="${esc(e && e.a || '')}" placeholder="ประชุม วิชาการ"></label>
     <label>ย้ายไปวัน<select id="ef-d">${DAYN.map((n,i) => `<option value="${i}" ${i===d?'selected':''}>${n}</option>`).join('')}</select></label>
-    <label>ย้ายไปคาบ<select id="ef-p">${Array.from({length:10},(_,i) => `<option value="${i}" ${i===p?'selected':''}>คาบ ${i+1}</option>`).join('')}</select></label>
+    <label>ย้ายไปคาบ<select id="ef-p">${Array.from({length:9},(_,i) => `<option value="${i}" ${i===p?'selected':''}>คาบ ${i+1}</option>`).join('')}</select></label>
     <div class="full" id="ef-warn"></div>
     <div class="full row">
       <button class="btn primary" type="button" id="ef-apply">ใช้การแก้ไข</button>
