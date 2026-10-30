@@ -105,6 +105,13 @@ html{-webkit-text-size-adjust:100%}body{margin:0}[hidden]{display:none!important
 .errbox{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:20px;max-width:60ch}
 .updated{color:var(--muted);font-size:13px}
 header.top .wrap{align-items:center}
+.admin-link{margin-left:auto;font-size:13px;font-weight:500;color:var(--muted);text-decoration:none;border:1px solid var(--line);border-radius:999px;padding:5px 12px;white-space:nowrap}
+.admin-link:hover{color:var(--accent);border-color:var(--accent)}
+.export-bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.xbtn{font:inherit;font-size:13px;font-weight:500;border:1px solid var(--line);background:var(--surface);color:var(--fg);padding:6px 12px;border-radius:6px;cursor:pointer}
+.xbtn:hover{border-color:var(--accent);color:var(--accent)}
+.xbtn:disabled{opacity:.5;cursor:wait}
+.xmsg{font-size:13px;color:var(--muted)}
 .logo{height:48px;width:auto;flex:none;margin-right:2px}
 @media (max-width:600px){.logo{height:40px}}
 </style>
@@ -117,6 +124,7 @@ header.top .wrap{align-items:center}
   <img src="logo.png" alt="ตราโรงเรียนเบญจมราชรังสฤษฎิ์ ๒" class="logo" width="36" height="48">
   <h1 id="school">ตารางสอน</h1>
   <span class="term" id="term"></span>
+  <a class="admin-link" href="admin.html" target="_blank" rel="noopener">ผู้ดูแล</a>
 </div></header>
 <div class="wrap">
   <nav class="tabs" role="tablist" aria-label="มุมมอง">
@@ -309,6 +317,7 @@ function viewTeacher(){
   const perDay = DAYS_S.map((d,i)=> lessons.filter(e=>e.d===i).length);
   return `<div class="title-row"><div><div class="sub">${esc(t.g)} · รหัส ${esc(t.id)}</div><h2>${esc(t.n)}</h2></div>
     <div class="stats"><div class="stat"><b>${t.t}</b><span>คาบ/สัปดาห์</span></div><div class="stat"><b>${lessons.length}</b><span>คาบสอน</span></div><div class="stat"><b>${subj.size}</b><span>รายวิชา</span></div><div class="stat"><b>${cls.size}</b><span>ห้อง/กลุ่มเรียน</span></div><div class="stat"><b>${perDay.join(' · ')}</b><span>คาบสอน จ.–ศ.</span></div></div></div>
+    ${exportBar()}
     ${tableHTML((d,p) => stack(b[d][p], {c:1, r:1}))}
     ${legend()}`;
 }
@@ -332,6 +341,7 @@ function viewClass(){
   });
   return `<div class="title-row"><div><div class="sub">${isGroup ? 'กลุ่มเรียน (รวมหลายห้อง)' : 'ตารางเรียนนักเรียน'}</div><h2>${isGroup ? esc(c) : 'ม.'+esc(c)}</h2></div>
     <div class="stats"><div class="stat"><b>${filled}</b><span>คาบเรียน/สัปดาห์</span></div><div class="stat"><b>${subj.size}</b><span>รายวิชา</span></div><div class="stat"><b>${teachers.size}</b><span>ครูผู้สอน</span></div></div></div>
+    ${exportBar()}
     ${html}${legend()}
     <p class="note">ตารางนี้กลับข้างมาจากตารางสอนครู ช่องลายทแยงเป็นกิจกรรมที่ครูส่วนใหญ่มีตรงกัน (ชุมนุม, ลูกเสือ–เนตรนารีของ ม.ต้น) ซึ่งระบบเติมให้เอง ${isGroup ? '' : 'วิชาที่สอนเป็นกลุ่มสายวิทย์/ศิลป์หรือวิชาเสรีจะอยู่ในรายการ “กลุ่มเรียนอื่น” เพราะไฟล์ไม่ได้ระบุว่ากลุ่มนั้นมีห้องไหนบ้าง'}</p>`;
 }
@@ -346,6 +356,7 @@ function viewRoom(){
   const r=S.r, g=byRoom.get(r); const used=g.flat().filter(x=>x.length).length;
   return `<div class="title-row"><div><div class="sub">การใช้ห้อง</div><h2>${esc(roomLabel(r))}</h2></div>
     <div class="stats"><div class="stat"><b>${used}</b><span>คาบที่มีการใช้</span></div><div class="stat"><b>${50-used}</b><span>คาบว่าง</span></div><div class="stat"><b>${Math.round(used/50*100)}%</b><span>อัตราการใช้</span></div></div></div>
+    ${exportBar()}
     ${tableHTML((d,p) => stack(g[d][p], {c:1, t:1}))}${legend()}`;
 }
 function panelFree(){
@@ -391,6 +402,130 @@ function viewExam(){
   return head + [...byDate].sort().map(([d,l]) => `<section class="box"><h3>${esc(fmt(d))}</h3><div class="scroller"><table class="ex"><thead><tr><th>เวลา</th><th>ชั้น</th><th>รหัสวิชา</th><th>รายวิชา</th><th>ห้องสอบ</th><th>หมายเหตุ</th></tr></thead><tbody>${l.sort((a,b)=>(a.time||'').localeCompare(b.time||'')).map(e=>`<tr><td>${esc(e.time||'')}</td><td>ม.${esc(e.level||'')}</td><td>${esc(e.code||'')}</td><td>${esc(e.name||SUBJ[e.code]||'')}</td><td>${esc(e.rooms||'')}</td><td>${esc(e.note||'')}</td></tr>`).join('')}</tbody></table></div></section>`).join('');
 }
 
+// ---- ส่งออกตารางเป็นภาพ / PDF ขนาด A4 (วาดลง canvas เอง ไม่พึ่งการจับภาพหน้าจอ)
+const HEX = {th:'#C2410C',ma:'#2563EB',sc:'#059669',so:'#A16207',pe:'#DC2626',ar:'#DB2777',oc:'#7C3AED',en:'#0891B2',fl:'#65A30D',is:'#475569',ac:'#78716C',ex:'#4F46E5'};
+const hexOf = s => HEX[(CAT[s[0]]||['is'])[0]];
+function mixHex(hex, t, base){ const a=parseInt(hex.slice(1),16), b=parseInt((base||'#FFFFFF').slice(1),16);
+  const ch=(x,y)=>Math.round(x*t+y*(1-t)); return `rgb(${ch(a>>16,b>>16)},${ch((a>>8)&255,(b>>8)&255)},${ch(a&255,b&255)})`; }
+const shortName = n => n.replace(/^(นางสาว|นาย|นาง|Mr\.|Ms\.|Mrs\.)\s*/,'');
+function exportBar(){
+  return `<div class="export-bar"><span class="lbl">ส่งออก A4</span>
+    <button class="xbtn" type="button" data-export="png">บันทึกเป็นภาพ (PNG)</button>
+    <button class="xbtn" type="button" data-export="pdf">บันทึกเป็น PDF</button>
+    <span class="xmsg" id="xmsg" role="status"></span></div>`;
+}
+function sheetSpec(){
+  const term = `ภาคเรียนที่ ${DATA.meta.term}/${DATA.meta.year}`;
+  if (S.v==='t'){ const t=tById.get(S.t), b=busy.get(t.id);
+    return {kicker:'ตารางสอน', title:t.n, sub:`${t.g} · รหัส ${t.id} · ${t.t} คาบ/สัปดาห์`, term, file:`ตารางสอน-${shortName(t.n)}`,
+      cell:(d,p)=>b[d][p].map(e=> e.a ? {act:e.a} : {s:e.s, det:[e.c && (/^\d/.test(e.c)?'ม.':'')+e.c, isRoom(e.r)?roomLabel(e.r):''].filter(Boolean).join(' · ')})}; }
+  if (S.v==='c'){ const c=S.c, g=byClass.get(c), grp=!/^\d\/\d+$/.test(c);
+    return {kicker:'ตารางเรียน', title: grp ? c : 'ม.'+c, sub: grp ? 'กลุ่มเรียน (รวมหลายห้อง)' : 'ตารางเรียนนักเรียน', term, file:`ตารางเรียน-${grp?c:'ม.'+c.replace('/','-')}`,
+      cell:(d,p)=>{ const l=g[d][p]; if(!l.length){ const w=!grp&&wideFor(c,d,p); return w?[{act:w.a}]:[]; }
+        return l.map(e=>({s:e.s, det:[shortName(tById.get(e.t).n), isRoom(e.r)?roomLabel(e.r):''].filter(Boolean).join(' · ')})); }}; }
+  const r=S.r, g=byRoom.get(r);
+  return {kicker:'ตารางการใช้ห้อง', title:roomLabel(r), sub:'การใช้ห้องตลอดสัปดาห์', term, file:`ตารางห้อง-${r}`,
+    cell:(d,p)=>g[d][p].map(e=>({s:e.s, det:[e.c && (/^\d/.test(e.c)?'ม.':'')+e.c, shortName(tById.get(e.t).n)].filter(Boolean).join(' · ')}))};
+}
+const SEG = (window.Intl && Intl.Segmenter) ? new Intl.Segmenter('th', {granularity:'word'}) : null;
+function wrap(ctx, text, maxW){
+  const parts = SEG ? [...SEG.segment(text)].map(x=>x.segment) : [...text];
+  const lines=[]; let cur='';
+  for (const w of parts){
+    if (ctx.measureText(cur+w).width <= maxW) { cur += w; continue; }
+    if (cur) lines.push(cur.trimEnd());
+    cur = w.trimStart();
+    while (ctx.measureText(cur).width > maxW && cur.length > 1){ let i=cur.length; while (i>1 && ctx.measureText(cur.slice(0,i)).width > maxW) i--; lines.push(cur.slice(0,i)); cur=cur.slice(i); }
+  }
+  if (cur) lines.push(cur);
+  return lines;
+}
+function clip(ctx, text, maxW){ if (ctx.measureText(text).width<=maxW) return text; while (text.length>1 && ctx.measureText(text+'…').width>maxW) text=text.slice(0,-1); return text+'…'; }
+function rrect(ctx,x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
+const FB = '"IBM Plex Sans Thai","Noto Sans Thai",sans-serif', FD = '"Chakra Petch","IBM Plex Sans Thai",sans-serif';
+async function drawSheet(){
+  const spec = sheetSpec();
+  await Promise.all([`400 11px ${FB}`,`600 11px ${FB}`,`700 26px ${FD}`,`600 12px ${FD}`].map(f=>document.fonts.load(f).catch(()=>{})));
+  const logo = await new Promise(res=>{ const im=new Image(); im.onload=()=>res(im); im.onerror=()=>res(null); im.src='logo.png'; });
+  const W=1123, H=794, K=2, M=30;           // A4 แนวนอนที่ 96 dpi, วาดละเอียด 2 เท่า
+  const cv=document.createElement('canvas'); cv.width=W*K; cv.height=H*K;
+  const ctx=cv.getContext('2d'); ctx.scale(K,K); ctx.textBaseline='alphabetic';
+  const INK='#14211E', MUTED='#5A6965', LINE='#C9D3CF', SUNK='#EEF2F0';
+  ctx.fillStyle='#fff'; ctx.fillRect(0,0,W,H);
+  // หัวกระดาษ
+  let x0=M;
+  if (logo){ const lh=60, lw=logo.width*lh/logo.height; ctx.drawImage(logo,M,22,lw,lh); x0=M+lw+14; }
+  ctx.fillStyle=MUTED; ctx.font=`500 13px ${FB}`; ctx.fillText((DATA.meta.school||'')+' · '+spec.kicker, x0, 38);
+  ctx.fillStyle=INK; ctx.font=`700 26px ${FD}`; ctx.fillText(clip(ctx, spec.title, 640), x0, 68);
+  ctx.fillStyle=MUTED; ctx.font=`400 12px ${FB}`; ctx.fillText(spec.sub, x0, 86);
+  ctx.textAlign='right'; ctx.fillStyle=INK; ctx.font=`600 15px ${FD}`; ctx.fillText(spec.term, W-M, 40);
+  ctx.fillStyle=MUTED; ctx.font=`400 11px ${FB}`;
+  if (DATA.updatedAt) ctx.fillText('ข้อมูล ณ '+new Date(DATA.updatedAt).toLocaleDateString('th-TH',{day:'numeric',month:'long',year:'numeric'}), W-M, 58);
+  ctx.fillText('พิมพ์เมื่อ '+new Date().toLocaleDateString('th-TH',{day:'numeric',month:'short',year:'numeric'})+' · '+location.host+location.pathname.replace(/index\.html$/,''), W-M, 74);
+  ctx.textAlign='left';
+  // ตาราง
+  const top=104, bottom=H-46, dayW=74, headH=34, colW=(W-2*M-dayW)/NP, rowH=(bottom-top-headH)/5;
+  ctx.fillStyle=SUNK; ctx.fillRect(M,top,W-2*M,headH); ctx.fillRect(M,top,dayW,bottom-top);
+  ctx.textAlign='center';
+  for (let p=0;p<NP;p++){ const cx=M+dayW+colW*p+colW/2;
+    ctx.fillStyle=INK; ctx.font=`600 12px ${FD}`; ctx.fillText('คาบ '+(p+1), cx, top+(PT[p]?15:21));
+    if (PT[p]){ ctx.fillStyle=MUTED; ctx.font=`400 9.5px ${FB}`; ctx.fillText(PT[p], cx, top+28); } }
+  ctx.textAlign='left';
+  for (let d=0; d<5; d++){
+    const y=top+headH+rowH*d;
+    ctx.fillStyle=INK; ctx.font=`600 13px ${FD}`; ctx.fillText(DAYS[d], M+10, y+rowH/2+4);
+    for (let p=0;p<NP;p++){
+      const x=M+dayW+colW*p, items=spec.cell(d,p); if (!items.length) continue;
+      const shown=items.slice(0,3), more=items.length-shown.length, pad=3, gap=3;
+      const eh=(rowH-2*pad-gap*(shown.length-1)-(more?12:0))/shown.length;
+      shown.forEach((it,i)=>{
+        const ex=x+pad, ey=y+pad+i*(eh+gap), ew=colW-2*pad;
+        if (it.act){ ctx.fillStyle=SUNK; rrect(ctx,ex,ey,ew,eh,4); ctx.fill(); ctx.fillStyle=MUTED; ctx.font=`500 10px ${FB}`; ctx.textAlign='center';
+          const ls=wrap(ctx,it.act,ew-8).slice(0,3); ls.forEach((l,k)=>ctx.fillText(l, ex+ew/2, ey+eh/2-(ls.length-1)*6.5+k*13+3.5)); ctx.textAlign='left'; return; }
+        const hex=hexOf(it.s); ctx.fillStyle=mixHex(hex,.16); rrect(ctx,ex,ey,ew,eh,4); ctx.fill();
+        ctx.save(); rrect(ctx,ex,ey,ew,eh,4); ctx.clip();
+        let ty=ey+13; const tx=ex+5, tw=ew-10;
+        ctx.fillStyle=mixHex(hex,.72,'#14211E'); ctx.font=`600 11px ${FD}`; ctx.fillText(it.s, tx, ty);
+        const nm=SUBJ[it.s]; ctx.font=`400 10px ${FB}`;
+        const detH = it.det ? 12.5 : 0;
+        if (nm){ ctx.fillStyle=INK; const room=Math.max(0,Math.floor((ey+eh-ty-detH-4)/12.5)); const ls=wrap(ctx,nm,tw);
+          ls.slice(0,room).forEach((l,k)=>{ const last=k===room-1 && ls.length>room; ty+=12.5; ctx.fillText(last?clip(ctx,l+'…',tw):l, tx, ty); }); }
+        if (it.det && ty+12.5 <= ey+eh-2){ ty+=12.5; ctx.fillStyle=MUTED; ctx.fillText(clip(ctx,it.det,tw), tx, ty); }
+        ctx.restore();
+      });
+      if (more){ ctx.fillStyle=MUTED; ctx.font=`400 9.5px ${FB}`; ctx.fillText(`+${more} รายวิชา`, x+5, y+rowH-5); }
+    }
+  }
+  ctx.strokeStyle=LINE; ctx.lineWidth=.8; ctx.strokeRect(M,top,W-2*M,bottom-top);
+  ctx.beginPath(); ctx.moveTo(M,top+headH); ctx.lineTo(W-M,top+headH);
+  for (let d=1; d<5; d++){ const y=top+headH+rowH*d; ctx.moveTo(M,y); ctx.lineTo(W-M,y); }
+  for (let p=0;p<=NP;p++){ const x=M+dayW+colW*p; if (p<NP) { ctx.moveTo(x,top); ctx.lineTo(x,bottom); } }
+  ctx.stroke();
+  // ท้ายกระดาษ: คำอธิบายสี + ที่มา
+  let lx=M; ctx.font=`400 10px ${FB}`;
+  const seen=new Map(); Object.values(CAT).forEach(([k,n])=>seen.set(k,n));
+  for (const [k,n] of seen){ ctx.fillStyle=mixHex(HEX[k],.55); rrect(ctx,lx,H-30,9,9,2); ctx.fill(); ctx.fillStyle=MUTED; ctx.fillText(n, lx+13, H-22); lx+=ctx.measureText(n).width+26; }
+  ctx.textAlign='left';
+  return {cv, file:spec.file};
+}
+function loadScript(src){ return new Promise((res,rej)=>{ if (document.querySelector(`script[src="${src}"]`)) return res(); const s=document.createElement('script'); s.src=src; s.onload=res; s.onerror=()=>rej(new Error('โหลดตัวสร้าง PDF ไม่สำเร็จ')); document.head.appendChild(s); }); }
+function saveBlob(blob, name){ const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click(); setTimeout(()=>{URL.revokeObjectURL(a.href); a.remove();}, 1500); }
+async function doExport(kind, btn){
+  const msg=document.getElementById('xmsg'); btn.disabled=true; msg.textContent='กำลังสร้างไฟล์…';
+  try {
+    const {cv, file} = await drawSheet();
+    if (kind==='png') { await new Promise(r=>cv.toBlob(b=>{ saveBlob(b, file+'.png'); r(); }, 'image/png')); }
+    else {
+      await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+      const pdf = new window.jspdf.jsPDF({orientation:'landscape', unit:'mm', format:'a4'});
+      pdf.addImage(cv.toDataURL('image/jpeg', .93), 'JPEG', 0, 0, 297, 210);
+      pdf.save(file+'.pdf');
+    }
+    msg.textContent='บันทึกแล้ว';
+  } catch (e) { msg.textContent='สร้างไฟล์ไม่สำเร็จ: '+e.message; }
+  finally { btn.disabled=false; setTimeout(()=>{ if (msg.textContent==='บันทึกแล้ว') msg.textContent=''; }, 3000); }
+}
+
 function render(){
   document.querySelectorAll('nav.tabs button').forEach(b => b.setAttribute('aria-selected', b.dataset.v===S.v));
   const panel = document.getElementById('panel'), main = document.getElementById('main');
@@ -400,6 +535,7 @@ function render(){
   else if (S.v==='r'){ panel.innerHTML = panelRooms(); main.innerHTML = viewRoom(); }
   else if (S.v==='e'){ panel.innerHTML = panelExam(); main.innerHTML = viewExam(); }
   else { panel.innerHTML = panelFree(); main.innerHTML = viewFree(); }
+  main.querySelectorAll('[data-export]').forEach(b => b.addEventListener('click', () => doExport(b.dataset.export, b)));
   const cur = panel.querySelector('.pick[aria-current="true"]');
   const list = panel.querySelector('.list');
   if (list && keepScroll != null && S._lastV===S.v) list.scrollTop = keepScroll;
