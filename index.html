@@ -111,6 +111,8 @@ html{-webkit-text-size-adjust:100%}body{margin:0}[hidden]{display:none!important
 .ent .sn{font-weight:500;color:var(--fg);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;white-space:normal;word-break:break-word}
 .ent .det{color:var(--muted);font-size:11.5px}
 .ent .det a{color:var(--muted)}
+.ent .sn.one{-webkit-line-clamp:1}
+.ent .pair{font-family:var(--font-b);font-weight:500;font-size:10.5px;color:var(--muted);margin-left:2px}
 .loading{padding:60px 10px;text-align:center;color:var(--muted)}
 .errbox{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:20px;max-width:60ch}
 .updated{color:var(--muted);font-size:13px}
@@ -295,17 +297,38 @@ function tableHTML(cellFn, opt){
   }
   return h + '</tbody></table></div>';
 }
+// รวมวิชาเดียวกัน (รหัสเดียวกัน) ที่อยู่คาบเดียวกันเป็นช่องเดียว เช่น สอนคู่ 2 คน
+function mergeSame(list){
+  const out = [], by = new Map();
+  for (const e of list){
+    const k = e.a ? 'a:'+e.a : 's:'+e.s;
+    let m = by.get(k);
+    if (!m){ m = {...e, cs:[], ts:[], rs:[]}; by.set(k, m); out.push(m); }
+    if (e.c && !m.cs.includes(e.c)) m.cs.push(e.c);
+    if (e.t && !m.ts.includes(e.t)) m.ts.push(e.t);
+    if (e.r && !m.rs.includes(e.r)) m.rs.push(e.r);
+  }
+  return out;
+}
+const shortT = id => tById.get(id).n.replace(/^(นางสาว|นาย|นาง|Mr\.|Ms\.|Mrs\.)\s*/,'');
 function entHTML(e, show, compact){
   if (e.a) return `<div class="ent act">${esc(e.a)}</div>`;
+  const cs = e.cs || (e.c ? [e.c] : []), ts = e.ts || (e.t ? [e.t] : []), rs = e.rs || (e.r ? [e.r] : []);
   const parts = [];
-  if (show.c && e.c) parts.push(link('c', expandClass(e.c)[0], (/^\d/.test(e.c)?'ม.':'')+e.c));
-  if (show.t && e.t) { const t=tById.get(e.t); parts.push(link('t', e.t, t.n.replace(/^(นางสาว|นาย|นาง|Mr\.|Ms\.|Mrs\.)\s*/,''))); }
-  if (show.r) { if (isRoom(e.r)) parts.push(link('r', e.r, roomLabel(e.r))); else if (e.r) parts.push('กลุ่ม '+esc(e.r)); }
+  if (show.c && cs.length) parts.push(cs.map(c => link('c', expandClass(c)[0], (/^\d/.test(c)?'ม.':'')+c)).join(', '));
+  if (show.t && ts.length) parts.push(ts.map(id => link('t', id, shortT(id))).join(', '));
+  if (show.r && rs.length) parts.push(rs.map(r => isRoom(r) ? link('r', r, roomLabel(r)) : 'กลุ่ม '+esc(r)).join(', '));
   const nm = SUBJ[e.s];
-  return `<div class="ent${compact?' many':''}" style="--h:${hueOf(e.s)}" title="${esc(e.s+(nm?' '+nm:''))}"><span class="ln code">${esc(e.s)}</span>${nm && !compact ? `<span class="sn">${esc(nm)}</span>` : ''}<span class="ln det">${parts.join(' · ')}</span></div>`;
+  const multi = ts.length > 1 && show.t && !compact;
+  // สอนร่วมหลายคน: แสดงครูคนละบรรทัด ชื่อวิชาเหลือบรรทัดเดียว
+  const detail = multi
+    ? [...(show.c && cs.length ? [parts[0]] : []), ...ts.map(id => link('t', id, shortT(id))), ...(show.r && rs.length ? [parts[parts.length-1]] : [])].map(x => `<span class="ln det">${x}</span>`).join('')
+    : `<span class="ln det">${parts.join(' · ')}</span>`;
+  return `<div class="ent${compact?' many':''}" style="--h:${hueOf(e.s)}" title="${esc(e.s+(nm?' '+nm:''))}"><span class="ln code">${esc(e.s)}${ts.length>1 ? ` <small class="pair">${ts.length} คน</small>` : ''}</span>${nm && !compact ? `<span class="sn${multi?' one':''}">${esc(nm)}</span>` : ''}${detail}</div>`;
 }
 function stack(list, show){
   if (!list.length) return '';
+  list = mergeSame(list);
   if (list.length <= 2) return list.map(e => entHTML(e, show, list.length>1)).join('');
   return list.slice(0,2).map(e => entHTML(e, show, true)).join('') + `<span class="more">+${list.length-2} รายวิชา</span>`;
 }
@@ -439,18 +462,22 @@ function exportBar(){
     <button class="xbtn" type="button" data-export="pdf">บันทึกเป็น PDF</button>
     <span class="xmsg" id="xmsg" role="status"></span></div>`;
 }
+function mergeX(list, fmt){
+  return mergeSame(list).map(e => e.a ? {act:e.a} : {s:e.s, det: fmt(e)});
+}
+const clsTxt = c => (/^\d/.test(c)?'ม.':'')+c;
 function sheetSpec(){
   const term = `ภาคเรียนที่ ${DATA.meta.term}/${DATA.meta.year}`;
   if (S.v==='t'){ const t=tById.get(S.t), b=busy.get(t.id);
     return {kicker:'ตารางสอน', title:t.n, sub:`${t.g} · รหัส ${t.id} · ${t.t} คาบ/สัปดาห์`, term, file:`ตารางสอน-${shortName(t.n)}`,
-      cell:(d,p)=>b[d][p].map(e=> e.a ? {act:e.a} : {s:e.s, det:[e.c && (/^\d/.test(e.c)?'ม.':'')+e.c, isRoom(e.r)?roomLabel(e.r):''].filter(Boolean).join(' · ')})}; }
+      cell:(d,p)=>mergeX(b[d][p], e=>[e.cs.map(clsTxt).join(', '), e.rs.filter(isRoom).map(roomLabel).join(', ')].filter(Boolean).join(' · '))}; }
   if (S.v==='c'){ const c=S.c, g=byClass.get(c), grp=!/^\d\/\d+$/.test(c);
     return {lunch: lunchFor(c), kicker:'ตารางเรียน', title: grp ? c : 'ม.'+c, sub: grp ? 'กลุ่มเรียน (รวมหลายห้อง)' : 'ตารางเรียนนักเรียน', term, file:`ตารางเรียน-${grp?c:'ม.'+c.replace('/','-')}`,
       cell:(d,p)=>{ const l=g[d][p]; if(!l.length){ const w=!grp&&wideFor(c,d,p); return w?[{act:w.a}]:[]; }
-        return l.map(e=>({s:e.s, det:[shortName(tById.get(e.t).n), isRoom(e.r)?roomLabel(e.r):''].filter(Boolean).join(' · ')})); }}; }
+        return mergeX(l, e=>[e.ts.map(shortT).join(', '), e.rs.filter(isRoom).map(roomLabel).join(', ')].filter(Boolean).join(' · ')); }}; }
   const r=S.r, g=byRoom.get(r);
   return {kicker:'ตารางการใช้ห้อง', title:roomLabel(r), sub:'การใช้ห้องตลอดสัปดาห์', term, file:`ตารางห้อง-${r}`,
-    cell:(d,p)=>g[d][p].map(e=>({s:e.s, det:[e.c && (/^\d/.test(e.c)?'ม.':'')+e.c, shortName(tById.get(e.t).n)].filter(Boolean).join(' · ')}))};
+    cell:(d,p)=>mergeX(g[d][p], e=>[e.cs.map(clsTxt).join(', '), e.ts.map(shortT).join(', ')].filter(Boolean).join(' · '))};
 }
 const SEG = (window.Intl && Intl.Segmenter) ? new Intl.Segmenter('th', {granularity:'word'}) : null;
 function wrap(ctx, text, maxW){
@@ -520,10 +547,12 @@ async function drawSheet(){
         let ty=ey+13; const tx=ex+5, tw=ew-10;
         ctx.fillStyle=mixHex(hex,.72,'#14211E'); ctx.font=`600 11px ${FD}`; ctx.fillText(it.s, tx, ty);
         const nm=SUBJ[it.s]; ctx.font=`400 10px ${FB}`;
-        const detH = it.det ? 12.5 : 0;
+        const detLs = it.det ? wrap(ctx, it.det, tw) : [];
+        const detN = Math.min(2, detLs.length), detH = detN*12.5;
         if (nm){ ctx.fillStyle=INK; const room=Math.max(0,Math.floor((ey+eh-ty-detH-4)/12.5)); const ls=wrap(ctx,nm,tw);
           ls.slice(0,room).forEach((l,k)=>{ const last=k===room-1 && ls.length>room; ty+=12.5; ctx.fillText(last?clip(ctx,l+'…',tw):l, tx, ty); }); }
-        if (it.det && ty+12.5 <= ey+eh-2){ ty+=12.5; ctx.fillStyle=MUTED; ctx.fillText(clip(ctx,it.det,tw), tx, ty); }
+        ctx.fillStyle=MUTED;
+        for (let k=0; k<detN && ty+12.5 <= ey+eh-2; k++){ ty+=12.5; const last=k===detN-1 && detLs.length>detN; ctx.fillText(last?clip(ctx,detLs[k]+'…',tw):detLs[k], tx, ty); }
         ctx.restore();
       });
       if (more){ ctx.fillStyle=MUTED; ctx.font=`400 9.5px ${FB}`; ctx.fillText(`+${more} รายวิชา`, x+5, y+rowH-5); }
