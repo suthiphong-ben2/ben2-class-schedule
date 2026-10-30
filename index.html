@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>ตารางสอน BEN2</title>
+<title>ระบบตารางเรียน/ตารางสอบนักเรียน โรงเรียนเบญจมราชรังสฤษฎิ์ ๒</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Sans+Thai:wght@400;500;600&display=swap">
@@ -122,7 +122,7 @@ header.top .wrap{align-items:center}
 <body>
 <header class="top"><div class="wrap">
   <img src="logo.png" alt="ตราโรงเรียนเบญจมราชรังสฤษฎิ์ ๒" class="logo" width="36" height="48">
-  <h1 id="school">ตารางสอน</h1>
+  <h1 id="school">ระบบตารางเรียน/ตารางสอบนักเรียน โรงเรียนเบญจมราชรังสฤษฎิ์ ๒</h1>
   <span class="term" id="term"></span>
   <a class="admin-link" href="admin.html" target="_blank" rel="noopener">ผู้ดูแล</a>
 </div></header>
@@ -550,7 +550,6 @@ function render(){
   panel.querySelectorAll('[data-fd]').forEach(b => b.addEventListener('click', () => { S.fd=+b.dataset.fd; save(); render(); }));
   panel.querySelectorAll('[data-fp]').forEach(b => b.addEventListener('click', () => { S.fp=+b.dataset.fp; save(); render(); }));
 }
-document.getElementById('school').textContent = 'ตารางสอน ' + DATA.meta.school;
 document.getElementById('term').innerHTML = `ภาคเรียนที่ <b>${esc(DATA.meta.term)}</b> ปีการศึกษา <b>${esc(DATA.meta.year)}</b> · ครู ${T.length} คน · ${classes.filter(c=>/^\d\/\d+$/.test(c)).length} ห้องเรียน`;
 fromHash();
 if (!byClass.has(S.c)) S.c = classes[0];
