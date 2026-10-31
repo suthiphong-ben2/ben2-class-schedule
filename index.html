@@ -10,7 +10,7 @@
 <style>
 /* Layout: slim header band → tab bar → [picker column | timetable grid (days × 10 periods)], stacks under 860px */
 :root{
-  --bg:#F3F6F5; --surface:#FFFFFF; --sunk:#E9EEEC; --line:#D5DDDA; --fg:#14211E; --muted:#5A6965; --accent:#0E6B5A; --accent-fg:#FFFFFF;
+  --bg:#F2F5FB; --surface:#FFFFFF; --sunk:#E7ECF6; --line:#D2DAEA; --fg:#111A33; --muted:#56617D; --accent:#1D3F9A; --accent-fg:#FFFFFF; --brand:#16337F; --brand-2:#1D3F9A; --brand-fg:#FFFFFF; --gold:#E2B33C; --gold-ink:#7A5A00;
   --mix:17%; --mix-strong:62%;
   --h-th:#C2410C; --h-ma:#2563EB; --h-sc:#059669; --h-so:#A16207; --h-pe:#DC2626; --h-ar:#DB2777; --h-oc:#7C3AED; --h-en:#0891B2; --h-fl:#65A30D; --h-is:#475569; --h-ac:#78716C; --h-ex:#4F46E5;
   --font-d:"Chakra Petch","IBM Plex Sans Thai",system-ui,sans-serif;
@@ -18,25 +18,28 @@
   --r:8px;
 }
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
-  --bg:#0F1614; --surface:#162120; --sunk:#1C2927; --line:#2A3835; --fg:#E4EDEA; --muted:#93A39E; --accent:#4CC3A6; --accent-fg:#06201A;
+  --bg:#0C1222; --surface:#131C33; --sunk:#1A2440; --line:#2A3658; --fg:#E7ECF7; --muted:#9AA6C4; --accent:#8DB0FF; --accent-fg:#0C1636; --brand:#0F1F4D; --brand-2:#162B66; --brand-fg:#FFFFFF; --gold:#F2C350; --gold-ink:#F2C350;
   --mix:26%; --mix-strong:72%; color-scheme:dark}}
 :root[data-theme="dark"]{
-  --bg:#0F1614; --surface:#162120; --sunk:#1C2927; --line:#2A3835; --fg:#E4EDEA; --muted:#93A39E; --accent:#4CC3A6; --accent-fg:#06201A;
+  --bg:#0C1222; --surface:#131C33; --sunk:#1A2440; --line:#2A3658; --fg:#E7ECF7; --muted:#9AA6C4; --accent:#8DB0FF; --accent-fg:#0C1636; --brand:#0F1F4D; --brand-2:#162B66; --brand-fg:#FFFFFF; --gold:#F2C350; --gold-ink:#F2C350;
   --mix:26%; --mix-strong:72%; color-scheme:dark}
 *{box-sizing:border-box}
 body{background:var(--bg);color:var(--fg);font-family:var(--font-b);font-size:15px;line-height:1.5}
 .wrap{max-width:1320px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
-header.top{border-bottom:1px solid var(--line);background:var(--surface)}
+header.top{background:linear-gradient(100deg,var(--brand),var(--brand-2));color:var(--brand-fg);border-bottom:4px solid var(--gold)}
 header.top .wrap{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 16px;padding-block:14px}
 h1{font-family:var(--font-d);font-size:20px;font-weight:700;margin:0;letter-spacing:.01em;line-height:1.3;text-wrap:balance}
 .ttl{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1}
 .nowrap{white-space:nowrap}
 @media (max-width:600px){h1{font-size:17px}}
-.term{color:var(--muted);font-size:14px}
-.term b{color:var(--accent);font-weight:600}
+.term{color:color-mix(in oklab,var(--brand-fg) 78%,transparent);font-size:14px}
+.term b{color:var(--gold);font-weight:600}
+header.top .updated{color:color-mix(in oklab,var(--brand-fg) 70%,transparent)}
+.logo{filter:drop-shadow(0 1px 2px rgba(0,0,0,.35))}
 nav.tabs{display:flex;gap:4px;flex-wrap:wrap;padding-block:12px}
 nav.tabs button{font:inherit;font-weight:500;border:1px solid var(--line);background:var(--surface);color:var(--fg);padding:7px 14px;border-radius:999px;cursor:pointer}
-nav.tabs button[aria-selected="true"]{background:var(--accent);color:var(--accent-fg);border-color:var(--accent)}
+nav.tabs button[aria-selected="true"]{background:var(--accent);color:var(--accent-fg);border-color:var(--accent);box-shadow:inset 0 -3px 0 var(--gold)}
+nav.tabs button:hover{border-color:var(--accent)}
 button:focus-visible,select:focus-visible,input:focus-visible,a:focus-visible,.pick:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .layout{display:grid;grid-template-columns:280px minmax(0,1fr);gap:20px;align-items:start;padding-bottom:40px}
 @media (max-width:1180px){.layout{grid-template-columns:minmax(0,1fr)}}
@@ -130,8 +133,9 @@ html{-webkit-text-size-adjust:100%}body{margin:0}[hidden]{display:none!important
 .errbox{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:20px;max-width:60ch}
 .updated{color:var(--muted);font-size:13px}
 header.top .wrap{align-items:center;flex-wrap:nowrap;gap:12px;padding-block:12px}
-.admin-link{margin-left:auto;font-size:13px;font-weight:500;color:var(--muted);text-decoration:none;border:1px solid var(--line);border-radius:999px;padding:5px 12px;white-space:nowrap}
-.admin-link:hover{color:var(--accent);border-color:var(--accent)}
+.admin-link{margin-left:auto;font-size:13px;font-weight:600;color:var(--brand);background:var(--gold);text-decoration:none;border-radius:999px;padding:6px 14px;white-space:nowrap}
+.admin-link:hover{filter:brightness(1.06)}
+.admin-link:focus-visible{outline:2px solid var(--brand-fg);outline-offset:2px}
 .export-bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
 .xbtn{font:inherit;font-size:13px;font-weight:500;border:1px solid var(--line);background:var(--surface);color:var(--fg);padding:6px 12px;border-radius:6px;cursor:pointer}
 .xbtn:hover{border-color:var(--accent);color:var(--accent)}
@@ -145,11 +149,11 @@ header.top .wrap{align-items:center;flex-wrap:nowrap;gap:12px;padding-block:12px
 .ent .sn,.ent .sn.one{display:block;-webkit-line-clamp:unset;overflow:visible}
 .mini .md{white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere}
 .ent.act{overflow-wrap:anywhere}
-footer.credit{margin-top:28px;padding:14px 0 18px;border-top:1px solid var(--line);background:var(--surface);color:var(--muted);font-size:13px;text-align:center}footer.credit b{color:var(--accent);font-weight:600}
+footer.credit{margin-top:28px;padding:14px 0 18px;border-top:3px solid var(--gold);background:var(--brand);color:#C9D4F2;font-size:13px;text-align:center}footer.credit b{color:var(--gold);font-weight:600}
 </style>
 <link rel="icon" type="image/png" href="favicon.png">
 <script src="config.js"></script>
-<script>/* ใช้ธีมสว่าง (น้ำเงิน-เหลือง) เสมอ ไม่ตามโหมดมืดของเครื่อง */ document.documentElement.setAttribute('data-theme','light');</script>
+<script>/* ใช้ธีมกรมท่า-ทอง (โหมดมืด) เสมอ ไม่ว่าเครื่องจะตั้งโหมดใด */ document.documentElement.setAttribute('data-theme','dark');</script>
 </head>
 <body>
 <header class="top"><div class="wrap">
@@ -574,13 +578,14 @@ async function drawSheet(){
   let x0=M;
   if (logo){ const lh=60, lw=logo.width*lh/logo.height; ctx.drawImage(logo,M,22,lw,lh); x0=M+lw+14; }
   ctx.fillStyle=MUTED; ctx.font=`500 13px ${FB}`; ctx.fillText((DATA.meta.school||'')+' · '+spec.kicker, x0, 38);
-  ctx.fillStyle=INK; ctx.font=`700 26px ${FD}`; ctx.fillText(clip(ctx, spec.title, 640), x0, 68);
+  ctx.fillStyle='#16337F'; ctx.font=`700 26px ${FD}`; ctx.fillText(clip(ctx, spec.title, 640), x0, 68);
   ctx.fillStyle=MUTED; ctx.font=`400 12px ${FB}`; ctx.fillText(spec.sub, x0, 86);
   ctx.textAlign='right'; ctx.fillStyle=INK; ctx.font=`600 15px ${FD}`; ctx.fillText(spec.term, W-M, 40);
   ctx.fillStyle=MUTED; ctx.font=`400 11px ${FB}`;
   if (DATA.updatedAt) ctx.fillText('ข้อมูล ณ '+new Date(DATA.updatedAt).toLocaleDateString('th-TH',{day:'numeric',month:'long',year:'numeric'}), W-M, 58);
   ctx.fillText('พิมพ์เมื่อ '+new Date().toLocaleDateString('th-TH',{day:'numeric',month:'short',year:'numeric'})+' · '+location.host+location.pathname.replace(/index\.html$/,''), W-M, 74);
   ctx.textAlign='left';
+  ctx.fillStyle='#E2B33C'; ctx.fillRect(M, 94, W-2*M, 3);   // เส้นทองใต้หัวกระดาษ
   // ตาราง
   const top=104, bottom=H-46, dayW=74, headH=34, rowH=(bottom-top-headH)/5;
   // คอลัมน์ที่ว่างทั้งสัปดาห์ให้แคบลง ส่วนคอลัมน์ที่มีเรียนได้พื้นที่มากขึ้น
